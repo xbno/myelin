@@ -60,6 +60,30 @@ scripts/compare.py --diy <transcript.jsonl> --reference-recorder-doc <reference-
 
 prints stats + an interleaved timeline of both transcripts on one clock.
 
+## Test process (from zero to a verdict)
+
+**Smoke test (2 min, no meeting):** headphones on → `recorder` in a terminal →
+play any YouTube interview + talk out loud → watch `me>` / `S1>` / `S2>` lines
+appear live → Ctrl-C. Transcript path is printed at the end.
+
+**Real call (the actual verdict):**
+
+1. (Once, optional but recommended) drop 5–10s voice clips of your regulars
+   into `~/Library/Application Support/live-recorder/speakers/` —
+   `Alice.wav` → named lines. Old archived/reference recorder recordings are a fine source.
+2. Before the call: `recorder` in a terminal. Start reference recorder too — they
+   coexist fine. Wear headphones.
+3. During: in a Claude session, say "pull the live call" — repeat pulls
+   return only new lines (live notes / research loop).
+4. After: Ctrl-C, then compare head-to-head:
+   `scripts/compare.py --diy <transcript.jsonl> --reference-recorder-doc <id>`
+   (`skills/reference-recorder-live/scripts/pull.py --list` shows recent doc ids.)
+
+**What to judge:** word accuracy on jargon, speaker-split correctness (were
+two remote speakers separated?), latency of lines appearing, and whether Me/Them ever
+cross-bleed (if they do — headphones).
+
+
 ## Judging quality / gotchas
 
 - **Wear headphones.** Without them the mic hears the speakers and remote
