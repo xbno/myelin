@@ -9,6 +9,9 @@ struct Main {
         var localeID = "en-US"
         var micOnly = false
         var systemOnly = false
+        var diarize = true
+        var speakersDir: String?
+        var diarizeFile: String?
 
         var args = Array(CommandLine.arguments.dropFirst())
         while !args.isEmpty {
@@ -22,19 +25,35 @@ struct Main {
                 micOnly = true
             case "--system-only":
                 systemOnly = true
+            case "--no-diarize":
+                diarize = false
+            case "--speakers-dir":
+                speakersDir = args.isEmpty ? nil : args.removeFirst()
+            case "--diarize-file":
+                diarizeFile = args.isEmpty ? nil : args.removeFirst()
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
+                                [--no-diarize] [--speakers-dir DIR]
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
                 Default output: ~/Library/Application Support/live-recorder/transcripts/<timestamp>.jsonl
+
+                Speaker labels: remote speakers are diarized locally (FluidAudio LS-EEND)
+                into S1/S2/…. Drop voice samples (e.g. Alice.wav) into
+                ~/Library/Application Support/live-recorder/speakers/ to get real names.
                 """)
                 return
             default:
                 FileHandle.standardError.write(Data("unknown argument: \(arg)\n".utf8))
                 exit(2)
             }
+        }
+
+        if let diarizeFile {
+            await SystemDiarizer.debugDiarizeFile(path: diarizeFile)
+            return
         }
 
         let sessionStart = Date()
@@ -63,6 +82,7 @@ struct Main {
         var channels: [SpeechChannel] = []
         var mic: MicCapture?
         var tap: SystemAudioTap?
+        var diarizer: SystemDiarizer?
 
         do {
             if !systemOnly {
@@ -73,9 +93,26 @@ struct Main {
                 channels.append(micChannel)
             }
             if !micOnly {
+                if diarize {
+                    let d = SystemDiarizer()
+                    do {
+                        let defaultSpeakers = FileManager.default.homeDirectoryForCurrentUser
+                            .appendingPathComponent("Library/Application Support/live-recorder/speakers")
+                        let enrollDir = speakersDir.map { URL(fileURLWithPath: $0) }
+                            ?? (FileManager.default.fileExists(atPath: defaultSpeakers.path)
+                                ? defaultSpeakers : nil)
+                        try await d.start(enrollDir: enrollDir)
+                        diarizer = d
+                    } catch {
+                        Console.error("diarization unavailable, continuing without: \(error)")
+                    }
+                }
                 let sysChannel = SpeechChannel(source: "system", locale: locale, writer: writer)
+                if let diarizer {
+                    sysChannel.labeler = { t0, t1 in diarizer.label(t0: t0, t1: t1) }
+                }
                 try await sysChannel.start()
-                tap = SystemAudioTap(channel: sysChannel)
+                tap = SystemAudioTap(channel: sysChannel, diarizer: diarizer)
                 try tap!.start()
                 channels.append(sysChannel)
             }
@@ -102,6 +139,7 @@ struct Main {
         Console.status("stopping — finalizing transcription…")
         mic?.stop()
         tap?.stop()
+        diarizer?.finish()
         for channel in channels {
             await channel.finish()
         }

@@ -4,9 +4,13 @@ import PackageDescription
 let package = Package(
     name: "recorder",
     platforms: [.macOS("26.0")],
+    dependencies: [
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.15.5")
+    ],
     targets: [
         .executableTarget(
             name: "recorder",
+            dependencies: [.product(name: "FluidAudio", package: "FluidAudio")],
             path: "Sources/Recorder",
             swiftSettings: [
                 .swiftLanguageMode(.v5)

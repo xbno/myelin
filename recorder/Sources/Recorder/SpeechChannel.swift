@@ -17,6 +17,10 @@ final class SpeechChannel {
     private var resultsTask: Task<Void, Never>?
     private var analyzerTask: Task<Void, Never>?
 
+    /// Optional speaker labeler (diarization): maps an utterance's [t0, t1] in
+    /// stream seconds to a speaker label ("S2" or an enrolled name).
+    var labeler: ((Double, Double) -> String?)?
+
     init(source: String, locale: Locale, writer: TranscriptWriter) {
         self.source = source
         self.writer = writer
@@ -48,18 +52,22 @@ final class SpeechChannel {
 
         let src = source
         let writer = writer
-        resultsTask = Task {
+        let transcriber = transcriber
+        resultsTask = Task { [weak self] in
             do {
                 for try await result in transcriber.results {
                     let text = String(result.text.characters)
                     if result.isFinal {
-                        var t0: Double?
-                        var t1: Double?
                         let range = result.range
-                        t0 = range.start.seconds.isFinite ? range.start.seconds : nil
-                        t1 = range.end.seconds.isFinite ? range.end.seconds : nil
-                        await writer.write(source: src, text: text, t0: t0, t1: t1)
-                        Console.finalLine(source: src, text: text)
+                        let t0: Double? = range.start.seconds.isFinite ? range.start.seconds : nil
+                        let t1: Double? = range.end.seconds.isFinite ? range.end.seconds : nil
+                        var speaker: String?
+                        if let t0, let t1, let labeler = self?.labeler {
+                            speaker = labeler(t0, t1)
+                        }
+                        await writer.write(
+                            source: src, text: text, t0: t0, t1: t1, speaker: speaker)
+                        Console.finalLine(source: src, speaker: speaker, text: text)
                     } else {
                         Console.volatileLine(source: src, text: text)
                     }
@@ -83,10 +91,8 @@ final class SpeechChannel {
     /// Feed a captured buffer (any format); converts and yields to the analyzer.
     func feed(_ buffer: AVAudioPCMBuffer) {
         guard let analyzerFormat else { return }
-        if buffer.format == analyzerFormat {
-            inputBuilder.yield(AnalyzerInput(buffer: buffer))
-            return
-        }
+        // Always convert (also when formats match, so we never retain a
+        // caller-owned no-copy buffer past the IO callback).
         if converter == nil || converter!.inputFormat != buffer.format {
             converter = AVAudioConverter(from: buffer.format, to: analyzerFormat)
             converter?.primeMethod = .none

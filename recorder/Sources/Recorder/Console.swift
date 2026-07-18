@@ -26,11 +26,11 @@ enum Console {
         lastVolatileLength = line.count
     }
 
-    static func finalLine(source: String, text: String) {
+    static func finalLine(source: String, speaker: String? = nil, text: String) {
         lock.lock()
         defer { lock.unlock() }
         clearVolatile_locked()
-        let tag = source == "mic" ? "me " : "them"
+        let tag = speaker ?? (source == "mic" ? "me " : "them")
         FileHandle.standardError.write(Data("\(tag)> \(text)\n".utf8))
     }
 

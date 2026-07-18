@@ -8,14 +8,16 @@ import Foundation
 /// to the "system" SpeechChannel. First run triggers the system-audio TCC prompt.
 final class SystemAudioTap {
     private let channel: SpeechChannel
+    private let diarizer: SystemDiarizer?
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
     private var procID: AudioDeviceIOProcID?
     private var tapFormat: AVAudioFormat?
     private let queue = DispatchQueue(label: "system-tap-io")
 
-    init(channel: SpeechChannel) {
+    init(channel: SpeechChannel, diarizer: SystemDiarizer? = nil) {
         self.channel = channel
+        self.diarizer = diarizer
     }
 
     func start() throws {
@@ -65,8 +67,9 @@ final class SystemAudioTap {
         }
         self.aggregateID = aggregateID
 
-        // 4. IOProc: deliver captured buffers to the speech channel.
+        // 4. IOProc: deliver captured buffers to the speech channel + diarizer.
         let channel = self.channel
+        let diarizer = self.diarizer
         let fmt = format
         status = AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, queue) {
             _, inInputData, _, _, _ in
@@ -75,6 +78,7 @@ final class SystemAudioTap {
                   buffer.frameLength > 0
             else { return }
             channel.feed(buffer)
+            diarizer?.feed(buffer)
         }
         guard status == noErr else {
             throw RecorderError("AudioDeviceCreateIOProcIDWithBlock failed (\(status))")
