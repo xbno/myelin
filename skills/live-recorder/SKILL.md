@@ -40,8 +40,11 @@ Flags: `--list` (recent transcripts), `--file <path>` (pin one),
 
 ## Notes
 
-- Everything is local: capture, ASR, transcript. Nothing leaves the machine.
-- Mic lines are the user ("Me"); system-audio lines are everyone else.
+- Everything is local: capture, ASR, diarization, transcript. Nothing leaves
+  the machine.
+- Mic lines are the user ("Me"); system-audio lines are everyone else,
+  diarized into S1/S2/… — or real names for voices enrolled via samples in
+  `~/Library/Application Support/live-recorder/speakers/` (e.g. `Alice.wav`).
 - If the user asks you to take notes / research topics live, poll, then act
   on the new lines each cycle; don't re-summarize what you already covered.
 - One cursor per transcript file, shared machine-wide: two sessions pulling

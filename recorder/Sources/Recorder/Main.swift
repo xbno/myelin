@@ -89,7 +89,7 @@ struct Main {
                 let micChannel = SpeechChannel(source: "mic", locale: locale, writer: writer)
                 try await micChannel.start()
                 mic = MicCapture(channel: micChannel)
-                try mic!.start()
+                try await mic!.start()
                 channels.append(micChannel)
             }
             if !micOnly {

@@ -10,7 +10,19 @@ final class MicCapture {
         self.channel = channel
     }
 
-    func start() throws {
+    func start() async throws {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .notDetermined:
+            Console.status("requesting microphone access — approve the macOS prompt…")
+            guard await AVCaptureDevice.requestAccess(for: .audio) else {
+                throw RecorderError("microphone access denied")
+            }
+        case .denied, .restricted:
+            throw RecorderError(
+                "microphone access denied — System Settings > Privacy & Security > Microphone")
+        default:
+            break
+        }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else {

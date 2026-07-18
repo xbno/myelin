@@ -39,7 +39,7 @@ final class SpeechChannel {
         let probe = SpeechTranscriber(
             locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [probe]) {
-            FileHandle.standardError.write(Data("downloading speech model for \(locale.identifier)…\n".utf8))
+            Console.status("ensuring speech model for \(locale.identifier) (first run downloads)…")
             try await request.downloadAndInstall()
         }
     }
