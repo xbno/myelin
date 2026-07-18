@@ -28,7 +28,7 @@ struct Main {
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
-                Default output: transcripts/<timestamp>.jsonl under the current directory.
+                Default output: ~/Library/Application Support/live-recorder/transcripts/<timestamp>.jsonl
                 """)
                 return
             default:
@@ -40,7 +40,9 @@ struct Main {
         let sessionStart = Date()
         let stamp = ISO8601DateFormatter().string(from: sessionStart)
             .replacingOccurrences(of: ":", with: "-")
-        let outPath = out ?? "transcripts/\(stamp).jsonl"
+        let defaultDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/live-recorder/transcripts")
+        let outPath = out ?? defaultDir.appendingPathComponent("\(stamp).jsonl").path
         let locale = Locale(identifier: localeID)
 
         do {
