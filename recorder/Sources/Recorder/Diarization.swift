@@ -94,6 +94,22 @@ final class SystemDiarizer {
         }
     }
 
+    /// Adopt an externally-hinted name (e.g. from meet-tap) for whichever
+    /// voice slot dominated [t0, t1]: the voice model learns the name live,
+    /// so it keeps working when hints stop. First hint wins; never renames.
+    func adoptName(_ name: String, t0: Double, t1: Double) {
+        guard started, let slot = store.dominantSlot(t0: t0, t1: t1) else { return }
+        queue.async { [self] in
+            guard let speaker = diarizer.timeline.speakers[slot], speaker.name == nil,
+                !diarizer.timeline.speakers.values.contains(where: { $0.name == name })
+            else { return }
+            if diarizer.timeline.upsertSpeaker(named: name, atIndex: slot) != nil {
+                store.replace(with: diarizer.timeline)
+                Console.status("voice S\(slot + 1) identified as \"\(name)\" (meet-tap)")
+            }
+        }
+    }
+
     /// Debug: offline-diarize an audio file and print the speaker timeline.
     static func debugDiarizeFile(path: String) async {
         do {
@@ -195,6 +211,15 @@ final class SegmentStore {
     }
 
     func dominantSpeaker(t0: Double, t1: Double) -> String? {
+        guard let best = dominant(t0: t0, t1: t1) else { return nil }
+        return best.name ?? "S\(best.slot + 1)"
+    }
+
+    func dominantSlot(t0: Double, t1: Double) -> Int? {
+        dominant(t0: t0, t1: t1)?.slot
+    }
+
+    private func dominant(t0: Double, t1: Double) -> (slot: Int, name: String?)? {
         guard t1 > t0 else { return nil }
         lock.lock()
         let snapshot = entries
@@ -212,6 +237,6 @@ final class SegmentStore {
         guard let best = overlapBySpeaker.max(by: { $0.value.duration < $1.value.duration }),
             best.value.duration >= 0.2 * (t1 - t0)
         else { return nil }
-        return best.value.name ?? "S\(best.key + 1)"
+        return (best.key, best.value.name)
     }
 }

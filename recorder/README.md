@@ -38,9 +38,16 @@ recorder --help               # --out, --locale, --mic-only, --system-only,
 
 Transcripts land in `~/Library/Application Support/live-recorder/transcripts/`.
 
-**Named speakers**: put 5–10s voice samples in
-`~/Library/Application Support/live-recorder/speakers/` — `Alice.wav` makes
-that voice show up as `Alice`. Mic lines are always you.
+**Named speakers**, two ways (both feed the same voice model):
+
+- **Voice samples**: put 5–10s clips in
+  `~/Library/Application Support/live-recorder/speakers/` — `Alice.wav` makes
+  that voice show up as `Alice`. Mic lines are always you.
+- **Google Meet integration** (`meet-tap/`, optional): a tiny Chrome extension
+  reads Meet's caption speaker names and streams them to the recorder on
+  localhost. Names apply live AND the diarizer adopts them for that voice —
+  so people stay identified after captions stop, during screen share, and on
+  future non-Meet calls. See `meet-tap/README.md`.
 
 **Live view in the terminal**: in-progress hypotheses repaint a status line;
 finalized lines print as `me> …` / `them> …` / `Alex> …`.

@@ -12,6 +12,7 @@ struct Main {
         var diarize = true
         var speakersDir: String?
         var diarizeFile: String?
+        var meetPort: UInt16 = 8737  // --meet-port 0 disables
 
         var args = Array(CommandLine.arguments.dropFirst())
         while !args.isEmpty {
@@ -31,10 +32,12 @@ struct Main {
                 speakersDir = args.isEmpty ? nil : args.removeFirst()
             case "--diarize-file":
                 diarizeFile = args.isEmpty ? nil : args.removeFirst()
+            case "--meet-port":
+                meetPort = args.isEmpty ? meetPort : UInt16(args.removeFirst()) ?? meetPort
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
-                                [--no-diarize] [--speakers-dir DIR]
+                                [--no-diarize] [--speakers-dir DIR] [--meet-port N]
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
@@ -107,9 +110,30 @@ struct Main {
                         Console.error("diarization unavailable, continuing without: \(error)")
                     }
                 }
+                var hints: MeetHints?
+                if meetPort != 0 {
+                    let h = MeetHints()
+                    do {
+                        try h.start(port: meetPort)
+                        hints = h
+                    } catch {
+                        Console.error("meet-tap listener unavailable: \(error)")
+                    }
+                }
+
                 let sysChannel = SpeechChannel(source: "system", locale: locale, writer: writer)
-                if let diarizer {
-                    sysChannel.labeler = { t0, t1 in diarizer.label(t0: t0, t1: t1) }
+                let sysEpoch = Date()  // stream time t=0 ≈ tap start (set just below)
+                let d = diarizer
+                sysChannel.labeler = { t0, t1 in
+                    if let hints,
+                        let name = hints.query(
+                            w0: sysEpoch.addingTimeInterval(t0),
+                            w1: sysEpoch.addingTimeInterval(t1))
+                    {
+                        d?.adoptName(name, t0: t0, t1: t1)
+                        return name
+                    }
+                    return d?.label(t0: t0, t1: t1)
                 }
                 try await sysChannel.start()
                 tap = SystemAudioTap(channel: sysChannel, diarizer: diarizer)

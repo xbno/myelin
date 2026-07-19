@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "meet-tap (live-recorder)",
+  "version": "0.1.0",
+  "description": "Reports Google Meet's active speaker name to the local live-recorder (127.0.0.1 only).",
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": ["http://127.0.0.1/*"]
+}
