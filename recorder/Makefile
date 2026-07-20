@@ -39,9 +39,10 @@ app:
 app-install: app
 	@rm -rf "/Applications/$(APP)"
 	cp -R $(APP) /Applications/
-	@echo "installed /Applications/$(APP)"
-	@echo "launch: open \"/Applications/$(APP)\"  (grant mic + system-audio + calendar on first record)"
-	@echo "launch at login: System Settings > General > Login Items > +  /Applications/$(APP)"
+	open "/Applications/$(APP)"
+	@echo "installed + launched /Applications/$(APP) — look for the waveform in your menu bar."
+	@echo "first Start prompts for Microphone + System Audio; naming prompts for Calendar."
+	@echo "menu has a 'Launch at Login' toggle (no System Settings trip needed)."
 
 uninstall:
 	rm -f $(BINDIR)/recorder

@@ -16,6 +16,9 @@ struct LiveRecorderApp: App {
             }
             Divider()
             Button("Open transcripts folder") { supervisor.openTranscriptsFolder() }
+            Button(supervisor.launchAtLogin ? "✓ Launch at Login" : "Launch at Login") {
+                supervisor.toggleLaunchAtLogin()
+            }
             Divider()
             Button("Quit") { NSApplication.shared.terminate(nil) }
         } label: {

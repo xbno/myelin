@@ -1,6 +1,7 @@
 import AppKit
 import EventKit
 import Foundation
+import ServiceManagement
 
 /// Supervises the `recorder` CLI as a child process. Names each meeting from
 /// the current calendar event, spawns `recorder --out <named>.jsonl`, and
@@ -11,8 +12,28 @@ final class RecorderSupervisor: ObservableObject {
     @Published private(set) var isRecording = false
     @Published private(set) var meetingName = ""
     @Published private(set) var transcriptURL: URL?
+    @Published private(set) var launchAtLogin = false
 
     private var process: Process?
+
+    init() {
+        launchAtLogin = (SMAppService.mainApp.status == .enabled)
+    }
+
+    /// Register/unregister as a macOS Login Item (SMAppService — no permission
+    /// prompt, unlike the osascript hack). Needs the app in /Applications.
+    func toggleLaunchAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            notify("Couldn't change Login Item", error.localizedDescription)
+        }
+        launchAtLogin = (SMAppService.mainApp.status == .enabled)
+    }
 
     // MARK: - Paths
 
