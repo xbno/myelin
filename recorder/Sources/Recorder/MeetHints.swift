@@ -23,6 +23,9 @@ final class MeetHints {
     /// (fake-meet test rig, future live view) render the transcript live.
     var transcriptPath: String?
 
+    /// When set, GET /partials serves the in-flight hypotheses per channel.
+    var partials: PartialStore?
+
     func start(port: UInt16) throws {
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             throw RecorderError("invalid meet-tap port \(port)")
@@ -124,6 +127,11 @@ final class MeetHints {
             return Self.response(
                 status: "200 OK", body: Data(LiveView.html.utf8),
                 contentType: "text/html; charset=utf-8")
+        }
+        if method == "GET", path.hasPrefix("/partials") {
+            return Self.response(
+                status: "200 OK", body: partials?.json() ?? Data("{}".utf8),
+                contentType: "application/json")
         }
         if method == "GET", path.hasPrefix("/transcript") {
             guard let transcriptPath,

@@ -23,7 +23,7 @@ enum LiveView {
           @keyframes pulse { 50% { opacity: .35; } }
           header h1 { font-size: 14px; font-weight: 600; margin: 0; }
           header .meta { color: #9aa0a6; font-size: 12px; margin-left: auto; }
-          #feed { max-width: 780px; margin: 0 auto; padding: 20px 20px 40vh; }
+          #feed { max-width: 780px; margin: 0 auto; padding: 20px 20px 0; }
           .turn { margin-bottom: 14px; }
           .who { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
           .who .t { color: #7d838b; font-weight: 400; font-size: 11px; margin-left: 8px; }
@@ -35,6 +35,8 @@ enum LiveView {
                   background: #8ab4f8; color: #16181c; border: 0; border-radius: 16px;
                   padding: 7px 16px; font-weight: 600; cursor: pointer; display: none; }
           #empty { color: #7d838b; text-align: center; margin-top: 15vh; }
+          #pending .turn { opacity: .55; }
+          #pending .txt { font-style: italic; }
         </style>
         </head>
         <body>
@@ -44,6 +46,7 @@ enum LiveView {
           <span class="meta" id="meta">connecting…</span>
         </header>
         <div id="feed"><div id="empty">waiting for the first line…</div></div>
+        <div id="pending" style="max-width:780px;margin:0 auto;padding:0 20px 30vh"></div>
         <button id="jump">↓ latest</button>
         <script>
         const feed = document.getElementById('feed');
@@ -107,7 +110,24 @@ enum LiveView {
           if (stick) window.scrollTo({ top: document.body.scrollHeight });
           else jump.style.display = 'block';
         }
-        setInterval(poll, 1200); poll();
+        const pending = document.getElementById('pending');
+        async function pollPartials() {
+          try {
+            const res = await fetch('/partials');
+            if (!res.ok) throw 0;
+            const parts = await res.json();
+            const stick = atBottom();
+            pending.innerHTML = Object.entries(parts).map(([src, text]) => {
+              const cls = src === 'mic' ? 'me' : 'anon';
+              const spk = src === 'mic' ? 'Me' : '…';
+              return '<div class="turn ' + cls + '"><div class="who">' + spk +
+                     '</div><div class="txt">' + text.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</div></div>';
+            }).join('');
+            if (stick && pending.innerHTML) window.scrollTo({ top: document.body.scrollHeight });
+          } catch { pending.innerHTML = ''; }
+        }
+        setInterval(poll, 900); poll();
+        setInterval(pollPartials, 400);
         </script>
         </body>
         </html>

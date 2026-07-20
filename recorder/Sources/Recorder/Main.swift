@@ -13,6 +13,7 @@ struct Main {
         var speakersDir: String?
         var diarizeFile: String?
         var meetPort: UInt16 = 8737  // --meet-port 0 disables
+        var fast = false
 
         var args = Array(CommandLine.arguments.dropFirst())
         while !args.isEmpty {
@@ -34,10 +35,12 @@ struct Main {
                 diarizeFile = args.isEmpty ? nil : args.removeFirst()
             case "--meet-port":
                 meetPort = args.isEmpty ? meetPort : UInt16(args.removeFirst()) ?? meetPort
+            case "--fast":
+                fast = true  // quicker finalization, possibly lower accuracy (A/B it)
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
-                                [--no-diarize] [--speakers-dir DIR] [--meet-port N]
+                                [--no-diarize] [--speakers-dir DIR] [--meet-port N] [--fast]
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
@@ -86,10 +89,13 @@ struct Main {
         var mic: MicCapture?
         var tap: SystemAudioTap?
         var diarizer: SystemDiarizer?
+        let partialStore = PartialStore()
 
         do {
             if !systemOnly {
-                let micChannel = SpeechChannel(source: "mic", locale: locale, writer: writer)
+                let micChannel = SpeechChannel(
+                    source: "mic", locale: locale, writer: writer, fast: fast)
+                micChannel.partials = partialStore
                 try await micChannel.start()
                 mic = MicCapture(channel: micChannel)
                 try await mic!.start()
@@ -114,6 +120,7 @@ struct Main {
                 if meetPort != 0 {
                     let h = MeetHints()
                     h.transcriptPath = outPath
+                    h.partials = partialStore
                     do {
                         try h.start(port: meetPort)
                         hints = h
@@ -122,7 +129,9 @@ struct Main {
                     }
                 }
 
-                let sysChannel = SpeechChannel(source: "system", locale: locale, writer: writer)
+                let sysChannel = SpeechChannel(
+                    source: "system", locale: locale, writer: writer, fast: fast)
+                sysChannel.partials = partialStore
                 let sysEpoch = Date()  // stream time t=0 ≈ tap start (set just below)
                 let d = diarizer
                 sysChannel.labeler = { t0, t1 in

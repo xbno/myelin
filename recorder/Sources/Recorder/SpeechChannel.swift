@@ -21,13 +21,18 @@ final class SpeechChannel {
     /// stream seconds to a speaker label ("S2" or an enrolled name).
     var labeler: ((Double, Double) -> String?)?
 
-    init(source: String, locale: Locale, writer: TranscriptWriter) {
+    /// Optional sink for in-flight (volatile) hypotheses — feeds the live view.
+    var partials: PartialStore?
+
+    init(source: String, locale: Locale, writer: TranscriptWriter, fast: Bool = false) {
         self.source = source
         self.writer = writer
+        var reporting: Set<SpeechTranscriber.ReportingOption> = [.volatileResults]
+        if fast { reporting.insert(.fastResults) }
         self.transcriber = SpeechTranscriber(
             locale: locale,
             transcriptionOptions: [],
-            reportingOptions: [.volatileResults],
+            reportingOptions: reporting,
             attributeOptions: [.audioTimeRange]
         )
         self.analyzer = SpeechAnalyzer(modules: [transcriber])
@@ -65,10 +70,12 @@ final class SpeechChannel {
                         if let t0, let t1, let labeler = self?.labeler {
                             speaker = labeler(t0, t1)
                         }
+                        self?.partials?.clear(src)
                         await writer.write(
                             source: src, text: text, t0: t0, t1: t1, speaker: speaker)
                         Console.finalLine(source: src, speaker: speaker, text: text)
                     } else {
+                        self?.partials?.set(src, text)
                         Console.volatileLine(source: src, text: text)
                     }
                 }
