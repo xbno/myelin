@@ -13,11 +13,29 @@ final class RecorderSupervisor: ObservableObject {
     @Published private(set) var meetingName = ""
     @Published private(set) var transcriptURL: URL?
     @Published private(set) var launchAtLogin = false
+    /// Drives the menu-bar waveform animation (0…1 bar height). SymbolEffect
+    /// doesn't animate in a MenuBarExtra label, so we cycle this on a timer and
+    /// the label re-renders via `variableValue`.
+    @Published private(set) var level: Double = 1.0
 
     private var process: Process?
+    private var levelTimer: Timer?
 
     init() {
         launchAtLogin = (SMAppService.mainApp.status == .enabled)
+    }
+
+    private func startLevelAnimation() {
+        levelTimer?.invalidate()
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.level = Double.random(in: 0.2...1.0) }
+        }
+    }
+
+    private func stopLevelAnimation() {
+        levelTimer?.invalidate()
+        levelTimer = nil
+        level = 1.0
     }
 
     /// Register/unregister as a macOS Login Item (SMAppService — no permission
@@ -82,6 +100,7 @@ final class RecorderSupervisor: ObservableObject {
                 Task { @MainActor in
                     self.isRecording = false
                     self.process = nil
+                    self.stopLevelAnimation()
                 }
             }
             do {
@@ -90,6 +109,7 @@ final class RecorderSupervisor: ObservableObject {
                 isRecording = true
                 meetingName = name.isEmpty ? "Untitled meeting" : name
                 transcriptURL = out
+                startLevelAnimation()
             } catch {
                 notify("Couldn't start recording", error.localizedDescription)
             }
