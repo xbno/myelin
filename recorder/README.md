@@ -88,7 +88,7 @@ appear live → Ctrl-C. Transcript path is printed at the end.
    return only new lines (live notes / research loop).
 4. After: Ctrl-C, then compare head-to-head:
    `scripts/compare.py --diy <transcript.jsonl> --reference-recorder-doc <id>`
-   (`skills/reference-recorder-live/scripts/pull.py --list` shows recent doc ids.)
+   (get the reference recorder doc id from the reference recorder app or `reference-recorder_export.py`.)
 
 **What to judge:** word accuracy on jargon, speaker-split correctness (were
 two remote speakers separated?), latency of lines appearing, and whether Me/Them ever
