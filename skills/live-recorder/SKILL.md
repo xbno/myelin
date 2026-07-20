@@ -47,8 +47,10 @@ Flags: `--list` (recent transcripts), `--file <path>` (pin one),
   `~/Library/Application Support/live-recorder/speakers/` (e.g. `Alice.wav`).
 - If the user asks you to take notes / research topics live, poll, then act
   on the new lines each cycle; don't re-summarize what you already covered.
-- One cursor per transcript file, shared machine-wide: two sessions pulling
-  the same call each get disjoint chunks.
+- Cursor is per-session per-call (keyed by `CLAUDE_CODE_SESSION_ID`): two
+  Claude sessions pulling the same call each get the full stream
+  independently, not disjoint halves. Override with `--session <name>` to
+  share or separate cursors deliberately.
 
 ## Requirements
 

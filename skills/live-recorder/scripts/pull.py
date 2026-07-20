@@ -11,12 +11,37 @@ Transcript lines look like:
 
 import argparse
 import json
+import os
+import re
 import sys
 import time
 from pathlib import Path
 
 DEFAULT_DIR = Path.home() / "Library/Application Support/live-recorder/transcripts"
 SKILL_DIR = Path(__file__).resolve().parent.parent
+
+
+def write_state(state_file: Path, cursor: int, session: str) -> None:
+    """Atomically persist the cursor: write a temp file then os.replace (an
+    atomic rename on POSIX). No lock needed — each session owns its own state
+    file, so there is a single writer, and the rename can't leave a torn file
+    even if the process dies mid-write."""
+    tmp = state_file.with_name(f"{state_file.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps({"cursor": cursor, "session": session, "updated_at": time.time()}))
+    os.replace(tmp, state_file)
+
+
+def session_key(explicit: str | None) -> str:
+    """Identify the calling Claude session so each one keeps its own cursor.
+    Falls back through --session, the harness env var, then 'shared' (the old
+    single-cursor behavior) so a plain shell still works."""
+    sid = explicit or os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get(
+        "CLAUDE_SESSION_ID"
+    )
+    if not sid:
+        return "shared"
+    # keep filenames tame regardless of what the id looks like
+    return re.sub(r"[^A-Za-z0-9_-]", "", sid)[:40] or "shared"
 
 
 def newest_transcript(directory: Path) -> Path | None:
@@ -44,7 +69,14 @@ def main() -> int:
     ap.add_argument("--list", action="store_true", help="list transcripts and exit")
     ap.add_argument("--reset", action="store_true", help="zero the cursor and exit")
     ap.add_argument("--state-dir", default=str(SKILL_DIR / "state"), help="cursor storage dir")
+    ap.add_argument(
+        "--session",
+        help="cursor namespace (default: this Claude session, so parallel "
+        "sessions each get the full stream instead of splitting it)",
+    )
     args = ap.parse_args()
+
+    session = session_key(args.session)
 
     directory = Path(args.dir).expanduser()
 
@@ -66,7 +98,7 @@ def main() -> int:
 
     state_dir = Path(args.state_dir).expanduser()
     state_dir.mkdir(parents=True, exist_ok=True)
-    state_file = state_dir / (path.stem + ".json")
+    state_file = state_dir / f"{path.stem}.{session}.json"
 
     cursor = 0
     if state_file.exists():
@@ -76,8 +108,8 @@ def main() -> int:
             cursor = 0
 
     if args.reset:
-        state_file.write_text(json.dumps({"cursor": 0}))
-        print(f"cursor reset for {path.name}")
+        write_state(state_file, 0, session)
+        print(f"cursor reset for {path.name} (session {session})")
         return 0
 
     raw_lines = path.read_text().splitlines()
@@ -110,7 +142,7 @@ def main() -> int:
             continue
         print(f"**{label(line)} ({fmt_time(line.get('t0'), base)}):** {text}")
 
-    state_file.write_text(json.dumps({"cursor": total, "updated_at": time.time()}))
+    write_state(state_file, total, session)
     return 0
 
 
