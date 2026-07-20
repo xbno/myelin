@@ -26,7 +26,7 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 ```
 
 - Auto-selects the **newest** transcript in
-  `~/Library/Application Support/live-recorder/transcripts/`.
+  `~/ml/myelin/recordings/` (override with `$LIVE_RECORDER_DIR`).
 - Output: header `<file> — segments 5–12 of 12`, then one
   `**Me (m:ss):** …` / `**Them (m:ss):** …` line per new segment
   (`**S1/S2 (m:ss):**` once diarization is on — mic is always Me).
@@ -44,7 +44,7 @@ Flags: `--list` (recent transcripts), `--file <path>` (pin one),
   the machine.
 - Mic lines are the user ("Me"); system-audio lines are everyone else,
   diarized into S1/S2/… — or real names for voices enrolled via samples in
-  `~/Library/Application Support/live-recorder/speakers/` (e.g. `Alice.wav`).
+  `~/ml/myelin/recordings/speakers/` (e.g. `Alice.wav`).
 - If the user asks you to take notes / research topics live, poll, then act
   on the new lines each cycle; don't re-summarize what you already covered.
 - Cursor is per-session per-call (keyed by `CLAUDE_CODE_SESSION_ID`): two

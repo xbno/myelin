@@ -17,7 +17,11 @@ import sys
 import time
 from pathlib import Path
 
-DEFAULT_DIR = Path.home() / "Library/Application Support/live-recorder/transcripts"
+# Default under the user's project folder (not ~/Library, a macOS-protected
+# path sandboxed agents like Cowork can't mount). Override with $LIVE_RECORDER_DIR.
+DEFAULT_DIR = Path(
+    os.environ.get("LIVE_RECORDER_DIR") or (Path.home() / "ml/myelin/recordings")
+).expanduser()
 SKILL_DIR = Path(__file__).resolve().parent.parent
 
 

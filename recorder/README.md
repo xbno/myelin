@@ -36,12 +36,16 @@ recorder --help               # --out, --locale, --mic-only, --system-only,
                               # --no-diarize, --speakers-dir, --diarize-file
 ```
 
-Transcripts land in `~/Library/Application Support/live-recorder/transcripts/`.
+Transcripts land in `~/ml/myelin/recordings/` (one `.jsonl` per call).
+This lives inside the project folder so sandboxed agents (e.g. Claude Cowork,
+scoped to the repo) can read it — `~/Library/…` is a macOS-protected path they
+can't mount. Override with `$LIVE_RECORDER_DIR` or `--out`. The folder is
+gitignored (call transcripts are never committed).
 
 **Named speakers**, two ways (both feed the same voice model):
 
 - **Voice samples**: put 5–10s clips in
-  `~/Library/Application Support/live-recorder/speakers/` — `Alice.wav` makes
+  `~/ml/myelin/recordings/speakers/` — `Alice.wav` makes
   that voice show up as `Alice`. Mic lines are always you.
 - **Google Meet integration** (`meet-tap/`, optional): a tiny Chrome extension
   reads Meet's caption speaker names and streams them to the recorder on
@@ -76,7 +80,7 @@ appear live → Ctrl-C. Transcript path is printed at the end.
 **Real call (the actual verdict):**
 
 1. (Once, optional but recommended) drop 5–10s voice clips of your regulars
-   into `~/Library/Application Support/live-recorder/speakers/` —
+   into `~/ml/myelin/recordings/speakers/` —
    `Alice.wav` → named lines. Old archived/reference recorder recordings are a fine source.
 2. Before the call: `recorder` in a terminal. Start reference recorder too — they
    coexist fine. Wear headphones.

@@ -44,11 +44,12 @@ struct Main {
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
-                Default output: ~/Library/Application Support/live-recorder/transcripts/<timestamp>.jsonl
+                Default output: ~/ml/myelin/recordings/<timestamp>.jsonl
+                (override with $LIVE_RECORDER_DIR or --out).
 
                 Speaker labels: remote speakers are diarized locally (FluidAudio LS-EEND)
                 into S1/S2/…. Drop voice samples (e.g. Alice.wav) into
-                ~/Library/Application Support/live-recorder/speakers/ to get real names.
+                <recordings-dir>/speakers/ to get real names.
                 """)
                 return
             default:
@@ -65,9 +66,17 @@ struct Main {
         let sessionStart = Date()
         let stamp = ISO8601DateFormatter().string(from: sessionStart)
             .replacingOccurrences(of: ":", with: "-")
-        let defaultDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/live-recorder/transcripts")
-        let outPath = out ?? defaultDir.appendingPathComponent("\(stamp).jsonl").path
+        // Default under the user's project folder (not ~/Library, which is a
+        // macOS-protected path that sandboxed agents like Cowork can't mount).
+        // Override with $LIVE_RECORDER_DIR.
+        let baseDir: URL = {
+            if let env = ProcessInfo.processInfo.environment["LIVE_RECORDER_DIR"], !env.isEmpty {
+                return URL(fileURLWithPath: (env as NSString).expandingTildeInPath)
+            }
+            return FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("ml/myelin/recordings")
+        }()
+        let outPath = out ?? baseDir.appendingPathComponent("\(stamp).jsonl").path
         let locale = Locale(identifier: localeID)
 
         do {
@@ -105,8 +114,7 @@ struct Main {
                 if diarize {
                     let d = SystemDiarizer()
                     do {
-                        let defaultSpeakers = FileManager.default.homeDirectoryForCurrentUser
-                            .appendingPathComponent("Library/Application Support/live-recorder/speakers")
+                        let defaultSpeakers = baseDir.appendingPathComponent("speakers")
                         let enrollDir = speakersDir.map { URL(fileURLWithPath: $0) }
                             ?? (FileManager.default.fileExists(atPath: defaultSpeakers.path)
                                 ? defaultSpeakers : nil)
