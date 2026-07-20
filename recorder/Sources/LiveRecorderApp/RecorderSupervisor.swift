@@ -85,7 +85,11 @@ final class RecorderSupervisor: ObservableObject {
             return
         }
         Task {
-            let name = await currentMeetingName()
+            var name = await currentMeetingName()
+            if name.isEmpty {  // no calendar event → ask, so the name is descriptive
+                name = promptForName()
+                if name.isEmpty { return }  // cancelled
+            }
             let stamp = ISO8601DateFormatter().string(from: Date())
                 .replacingOccurrences(of: ":", with: "-")
             let base = name.isEmpty ? "meeting" : sanitize(name)
@@ -153,6 +157,24 @@ final class RecorderSupervisor: ObservableObject {
             .replacingOccurrences(of: " ", with: "-")
             .prefix(60)
             .description
+    }
+
+    /// Ask for a meeting name when the calendar has nothing (ad-hoc call).
+    /// Returns "" only if the user cancels (start() then aborts).
+    private func promptForName() -> String {
+        let alert = NSAlert()
+        alert.messageText = "Name this recording"
+        alert.informativeText = "No calendar event found — what's this meeting?"
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.placeholderString = "e.g. Acme discovery"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Start")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return "" }
+        let entered = field.stringValue.trimmingCharacters(in: .whitespaces)
+        return entered.isEmpty ? "Meeting" : entered
     }
 
     private func notify(_ title: String, _ body: String) {
