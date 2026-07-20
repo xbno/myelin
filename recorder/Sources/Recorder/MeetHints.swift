@@ -19,6 +19,10 @@ final class MeetHints {
     private var intervals: [Interval] = []
     private var listener: NWListener?
 
+    /// When set, GET /transcript serves this file (JSONL) — lets a local page
+    /// (fake-meet test rig, future live view) render the transcript live.
+    var transcriptPath: String?
+
     func start(port: UInt16) throws {
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             throw RecorderError("invalid meet-tap port \(port)")
@@ -30,7 +34,7 @@ final class MeetHints {
         }
         listener.start(queue: .global())
         self.listener = listener
-        Console.status("meet-tap hint listener on http://127.0.0.1:\(port)/speaking")
+        Console.status("live view: http://127.0.0.1:\(port)  (hints: POST /speaking)")
     }
 
     func stop() {
@@ -114,7 +118,20 @@ final class MeetHints {
         let requestLine = head.components(separatedBy: "\r\n").first ?? ""
         let method = requestLine.components(separatedBy: " ").first ?? ""
 
+        let path = requestLine.components(separatedBy: " ").dropFirst().first ?? ""
         if method == "OPTIONS" { return Self.response(status: "204 No Content") }
+        if method == "GET", path == "/" || path.hasPrefix("/index") {
+            return Self.response(
+                status: "200 OK", body: Data(LiveView.html.utf8),
+                contentType: "text/html; charset=utf-8")
+        }
+        if method == "GET", path.hasPrefix("/transcript") {
+            guard let transcriptPath,
+                let body = FileManager.default.contents(atPath: transcriptPath)
+            else { return Self.response(status: "404 Not Found") }
+            return Self.response(
+                status: "200 OK", body: body, contentType: "application/x-ndjson; charset=utf-8")
+        }
         guard method == "POST" else { return Self.response(status: "405 Method Not Allowed") }
 
         var contentLength = 0
@@ -137,17 +154,17 @@ final class MeetHints {
         return Self.response(status: "204 No Content")
     }
 
-    private static func response(status: String) -> Data {
-        Data(
-            """
-            HTTP/1.1 \(status)\r
-            Access-Control-Allow-Origin: *\r
-            Access-Control-Allow-Methods: POST, OPTIONS\r
-            Access-Control-Allow-Headers: *\r
-            Content-Length: 0\r
-            Connection: close\r
-            \r
-
-            """.utf8)
+    private static func response(
+        status: String, body: Data = Data(), contentType: String = "text/plain"
+    ) -> Data {
+        let head =
+            "HTTP/1.1 \(status)\r\n"
+            + "Access-Control-Allow-Origin: *\r\n"
+            + "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+            + "Access-Control-Allow-Headers: *\r\n"
+            + "Content-Type: \(contentType)\r\n"
+            + "Content-Length: \(body.count)\r\n"
+            + "Connection: close\r\n\r\n"
+        return Data(head.utf8) + body
     }
 }

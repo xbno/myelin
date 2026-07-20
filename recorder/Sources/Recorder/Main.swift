@@ -113,6 +113,7 @@ struct Main {
                 var hints: MeetHints?
                 if meetPort != 0 {
                     let h = MeetHints()
+                    h.transcriptPath = outPath
                     do {
                         try h.start(port: meetPort)
                         hints = h
