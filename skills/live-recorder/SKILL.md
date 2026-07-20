@@ -38,6 +38,20 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 Flags: `--list` (recent transcripts), `--file <path>` (pin one),
 `--reset` (zero cursor), `--dir`, `--state-dir`.
 
+## Workflow (context-efficient — read this)
+
+Invoke this skill **once** at the start of a call (e.g. `/live-recorder keep
+running notes`). After that, when the user says "pull" / "more" / "anything
+new?" / "catch up", **do not re-invoke the skill** — just re-run
+`scripts/pull.py` again. The instructions are already in context; re-invoking
+would reload this file for nothing.
+
+The only thing that grows context on each pull is the new transcript text,
+and the cursor already keeps that minimal (never re-sends seen lines). On long
+calls, keep a **rolling summary**: after each pull, fold the new lines into a
+short running-notes block and rely on that, so the raw lines can age out of
+context rather than accumulating.
+
 ## Notes
 
 - Everything is local: capture, ASR, diarization, transcript. Nothing leaves
