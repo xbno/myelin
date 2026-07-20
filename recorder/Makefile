@@ -29,10 +29,11 @@ app:
 	swift build -c release --product recorder
 	swift build -c release --product LiveRecorderApp
 	rm -rf $(APP)
-	mkdir -p $(APP)/Contents/MacOS
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp .build/release/LiveRecorderApp $(APP)/Contents/MacOS/LiveRecorderApp
 	cp .build/release/recorder $(APP)/Contents/MacOS/recorder
 	cp Resources/AppInfo.plist $(APP)/Contents/Info.plist
+	cp Resources/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
 	codesign --force --deep --sign - $(APP) >/dev/null 2>&1 || true
 	@echo "built $(APP) — run it with:  open $(APP)"
 

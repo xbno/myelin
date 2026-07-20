@@ -22,7 +22,13 @@ struct LiveRecorderApp: App {
             Divider()
             Button("Quit") { NSApplication.shared.terminate(nil) }
         } label: {
-            Image(systemName: supervisor.isRecording ? "record.circle.fill" : "waveform")
+            // recording: red waveform with the bars animating (variableColor);
+            // idle: a plain monochrome mic. The motion is the on/off tell even
+            // if the menu bar monochromes the red.
+            Image(systemName: supervisor.isRecording ? "waveform" : "mic")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(supervisor.isRecording ? Color.red : Color.primary)
+                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: supervisor.isRecording)
         }
     }
 }
