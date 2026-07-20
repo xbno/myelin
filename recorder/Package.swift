@@ -24,6 +24,14 @@ let package = Package(
                     "-Xlinker", "Resources/Info.plist",
                 ])
             ]
-        )
+        ),
+        // Menu-bar app: a thin SwiftUI supervisor that spawns the `recorder`
+        // binary as a child, names meetings from the calendar, and shows state.
+        // Keeps the CLI untouched; capture stays in `recorder`.
+        .executableTarget(
+            name: "LiveRecorderApp",
+            path: "Sources/LiveRecorderApp",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )

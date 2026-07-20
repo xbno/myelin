@@ -1,0 +1,123 @@
+import AppKit
+import EventKit
+import Foundation
+
+/// Supervises the `recorder` CLI as a child process. Names each meeting from
+/// the current calendar event, spawns `recorder --out <named>.jsonl`, and
+/// tracks state for the menu bar. Stopping sends SIGTERM so the recorder
+/// finalizes its transcript cleanly.
+@MainActor
+final class RecorderSupervisor: ObservableObject {
+    @Published private(set) var isRecording = false
+    @Published private(set) var meetingName = ""
+    @Published private(set) var transcriptURL: URL?
+
+    private var process: Process?
+
+    // MARK: - Paths
+
+    var recordingsDir: URL {
+        if let env = ProcessInfo.processInfo.environment["LIVE_RECORDER_DIR"], !env.isEmpty {
+            return URL(fileURLWithPath: (env as NSString).expandingTildeInPath)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("ml/myelin/recordings")
+    }
+
+    /// The recorder binary: bundled alongside the app, else ~/.local/bin/recorder.
+    private func recorderBinary() -> URL? {
+        if let dir = Bundle.main.executableURL?.deletingLastPathComponent() {
+            let bundled = dir.appendingPathComponent("recorder")
+            if FileManager.default.isExecutableFile(atPath: bundled.path) {
+                return bundled
+            }
+        }
+        let onPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/bin/recorder")
+        return FileManager.default.isExecutableFile(atPath: onPath.path) ? onPath : nil
+    }
+
+    // MARK: - Control
+
+    func start() {
+        guard !isRecording else { return }
+        guard let bin = recorderBinary() else {
+            notify("Can't find the recorder binary", "Run `make install` or `make app` first.")
+            return
+        }
+        Task {
+            let name = await currentMeetingName()
+            let stamp = ISO8601DateFormatter().string(from: Date())
+                .replacingOccurrences(of: ":", with: "-")
+            let base = name.isEmpty ? "meeting" : sanitize(name)
+            let out = recordingsDir.appendingPathComponent("\(base)-\(stamp).jsonl")
+            try? FileManager.default.createDirectory(
+                at: recordingsDir, withIntermediateDirectories: true)
+
+            let p = Process()
+            p.executableURL = bin
+            p.arguments = ["--out", out.path]
+            p.terminationHandler = { _ in
+                Task { @MainActor in
+                    self.isRecording = false
+                    self.process = nil
+                }
+            }
+            do {
+                try p.run()
+                process = p
+                isRecording = true
+                meetingName = name.isEmpty ? "Untitled meeting" : name
+                transcriptURL = out
+            } catch {
+                notify("Couldn't start recording", error.localizedDescription)
+            }
+        }
+    }
+
+    func stop() {
+        process?.terminate()  // SIGTERM → recorder finalizes and exits
+    }
+
+    func openLiveView() {
+        NSWorkspace.shared.open(URL(string: "http://127.0.0.1:8737")!)
+    }
+
+    func openTranscriptsFolder() {
+        NSWorkspace.shared.open(recordingsDir)
+    }
+
+    // MARK: - Naming (calendar, best-effort)
+
+    private func currentMeetingName() async -> String {
+        let store = EKEventStore()
+        let granted = (try? await store.requestFullAccessToEvents()) ?? false
+        guard granted else { return "" }
+        let now = Date()
+        let predicate = store.predicateForEvents(
+            withStart: now.addingTimeInterval(-1800),
+            end: now.addingTimeInterval(300),
+            calendars: nil)
+        let events = store.events(matching: predicate)
+        if let live = events.first(where: { $0.startDate <= now && $0.endDate >= now }) {
+            return live.title ?? ""
+        }
+        return events.sorted { $0.startDate < $1.startDate }.first?.title ?? ""
+    }
+
+    private func sanitize(_ s: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_ "))
+        let cleaned = String(String.UnicodeScalarView(s.unicodeScalars.filter { allowed.contains($0) }))
+        return cleaned.trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: " ", with: "-")
+            .prefix(60)
+            .description
+    }
+
+    private func notify(_ title: String, _ body: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = body
+        alert.runModal()
+    }
+}

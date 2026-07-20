@@ -28,6 +28,41 @@ Requires macOS 26+ and Xcode Command Line Tools. First run downloads the
 speech + diarization models and triggers two one-time permission prompts
 (System Audio Recording, Microphone) for your terminal app.
 
+## Menu-bar app (LiveRecorder.app)
+
+A no-terminal way to use it: a menu-bar app that names each meeting from your
+calendar and supervises the `recorder` binary for you.
+
+```bash
+cd recorder && make app        # builds LiveRecorder.app (recorder bundled inside)
+open LiveRecorder.app          # 🎙 appears in the menu bar
+# or install it:
+make app-install               # copies to /Applications
+```
+
+Menu: **Start recording** (names the transcript from your current calendar
+event), **Stop**, **Open live transcript** (→ http://127.0.0.1:8737), **Open
+transcripts folder**, **Quit**. It's menu-bar-only (no dock icon). First record
+prompts for Microphone + System Audio (the recorder) and Calendar (naming).
+
+### Running it "hacky" before we have an Apple Developer account
+
+Signing/notarization is only needed to *distribute* the app. For yourself:
+
+- **`make app` builds it locally**, so it has no quarantine flag → it opens
+  without any Gatekeeper right-click dance. The `make app` step ad-hoc-signs it
+  so macOS can attach your TCC (mic/audio/calendar) grants.
+- **Launch at login**: System Settings → General → Login Items → **+** →
+  `/Applications/LiveRecorder.app`.
+- **Caveat**: an ad-hoc-signed app can be re-prompted for permissions after a
+  rebuild (the signature changes). Annoying but harmless — just re-grant.
+
+**Sharing to a user without a dev account** (manual): zip the
+`.app`, they unzip and run `xattr -dr com.apple.quarantine LiveRecorder.app`
+(strips the download quarantine so the unsigned app opens), then double-click.
+Proper fix later: sign + notarize with an Apple Developer account and
+ship a DMG — then it's just drag-to-Applications.
+
 ## Use
 
 ```bash
