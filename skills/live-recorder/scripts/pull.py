@@ -72,6 +72,12 @@ def main() -> int:
     ap.add_argument("--dir", default=str(DEFAULT_DIR), help="transcript directory to search")
     ap.add_argument("--list", action="store_true", help="list transcripts and exit")
     ap.add_argument("--reset", action="store_true", help="zero the cursor and exit")
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="print the whole transcript from the top (ignores the cursor), then "
+        "continue incrementally from the end on the next pull",
+    )
     ap.add_argument("--state-dir", default=str(SKILL_DIR / "state"), help="cursor storage dir")
     ap.add_argument(
         "--session",
@@ -115,6 +121,9 @@ def main() -> int:
         write_state(state_file, 0, session)
         print(f"cursor reset for {path.name} (session {session})")
         return 0
+
+    if args.full:
+        cursor = 0  # re-emit everything from the top; cursor advances to end below
 
     raw_lines = path.read_text().splitlines()
     lines = []

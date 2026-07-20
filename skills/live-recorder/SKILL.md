@@ -38,6 +38,12 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 Flags: `--list` (recent transcripts), `--file <path>` (pin one),
 `--reset` (zero cursor), `--dir`, `--state-dir`.
 
+**Full transcript / re-read:** when the user says "full transcript", "reread",
+"pull the whole thing", "start over", or "catch me up from the top", run
+`scripts/pull.py --full`. It prints the entire transcript from segment 1
+(ignoring the cursor), then advances the cursor to the end so plain "pull"
+resumes incrementally afterward.
+
 ## Workflow (context-efficient — read this)
 
 Invoke this skill **once** at the start of a call (e.g. `/live-recorder keep
