@@ -5,9 +5,11 @@ import Foundation
 final class MicCapture {
     private let engine = AVAudioEngine()
     private let channel: SpeechChannel
+    private let aec: Bool
 
-    init(channel: SpeechChannel) {
+    init(channel: SpeechChannel, aec: Bool = true) {
         self.channel = channel
+        self.aec = aec
     }
 
     func start() async throws {
@@ -24,6 +26,18 @@ final class MicCapture {
             break
         }
         let input = engine.inputNode
+        // Built-in macOS acoustic echo cancellation: the Voice-Processing I/O
+        // removes speaker output (the other party) from the mic, so a
+        // headphones-free call doesn't echo their audio back onto our "me"
+        // channel. Must be set before the format is read / engine starts.
+        if aec {
+            do {
+                try input.setVoiceProcessingEnabled(true)
+                Console.status("mic AEC on (voice-processing) — echo cancellation active")
+            } catch {
+                Console.status("mic AEC unavailable (\(error)) — continuing without; use headphones")
+            }
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else {
             throw RecorderError("no microphone input available")

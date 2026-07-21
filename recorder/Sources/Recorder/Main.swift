@@ -10,6 +10,7 @@ struct Main {
         var micOnly = false
         var systemOnly = false
         var diarize = true
+        var aec = true
         var speakersDir: String?
         var diarizeFile: String?
         var meetPort: UInt16 = 8737  // --meet-port 0 disables
@@ -27,6 +28,8 @@ struct Main {
                 micOnly = true
             case "--system-only":
                 systemOnly = true
+            case "--no-aec":
+                aec = false
             case "--no-diarize":
                 diarize = false
             case "--speakers-dir":
@@ -40,7 +43,7 @@ struct Main {
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
-                                [--no-diarize] [--speakers-dir DIR] [--meet-port N] [--fast]
+                                [--no-diarize] [--no-aec] [--speakers-dir DIR] [--meet-port N] [--fast]
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
@@ -106,7 +109,7 @@ struct Main {
                     source: "mic", locale: locale, writer: writer, fast: fast)
                 micChannel.partials = partialStore
                 try await micChannel.start()
-                mic = MicCapture(channel: micChannel)
+                mic = MicCapture(channel: micChannel, aec: aec)
                 try await mic!.start()
                 channels.append(micChannel)
             }
