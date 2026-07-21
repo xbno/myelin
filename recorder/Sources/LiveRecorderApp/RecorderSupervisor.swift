@@ -9,10 +9,15 @@ import ServiceManagement
 /// finalizes its transcript cleanly.
 @MainActor
 final class RecorderSupervisor: ObservableObject {
+    static let shared = RecorderSupervisor()
+
     @Published private(set) var isRecording = false
     @Published private(set) var meetingName = ""
     @Published private(set) var transcriptURL: URL?
     @Published private(set) var launchAtLogin = false
+    /// Live status shown in the menu while recording.
+    @Published private(set) var elapsed = "0:00"
+    @Published private(set) var lineCount = 0
     /// Echo cancellation (macOS voice-processing) — ON by default in the app so
     /// it works speakers-free out of the box (verified to strip ~all system-audio
     /// echo from the mic). Toggle off in the menu if needed. Effective next Start.
@@ -24,9 +29,53 @@ final class RecorderSupervisor: ObservableObject {
 
     private var process: Process?
     private var levelTimer: Timer?
+    private var statusTimer: Timer?
+    private var recordingStart: Date?
+    private var lastActivity: Date?
+    private var lastLineCount = 0
+    /// Auto-stop after this many seconds with no NEW transcript lines — catches
+    /// "forgot to stop after the call" without cutting off a long active meeting
+    /// (an inactivity timeout, not a hard cap).
+    private let idleAutoStop: TimeInterval = 15 * 60
 
     init() {
         launchAtLogin = (SMAppService.mainApp.status == .enabled)
+    }
+
+    func toggle() { isRecording ? stop() : start() }
+
+    private func startStatusTimer() {
+        recordingStart = Date()
+        lastActivity = Date()
+        lastLineCount = 0
+        statusTimer?.invalidate()
+        statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.updateStatus() }
+        }
+    }
+
+    private func stopStatusTimer() {
+        statusTimer?.invalidate()
+        statusTimer = nil
+        recordingStart = nil
+        elapsed = "0:00"
+        lineCount = 0
+    }
+
+    private func updateStatus() {
+        if let start = recordingStart {
+            let s = Int(Date().timeIntervalSince(start))
+            elapsed = String(format: "%d:%02d", s / 60, s % 60)
+        }
+        if let url = transcriptURL, let text = try? String(contentsOf: url, encoding: .utf8) {
+            lineCount = text.split(separator: "\n").count
+        }
+        if lineCount > lastLineCount {  // new speech → still active
+            lastLineCount = lineCount
+            lastActivity = Date()
+        } else if let last = lastActivity, Date().timeIntervalSince(last) >= idleAutoStop {
+            stop()  // silent for 15 min — the call's over and Stop was forgotten
+        }
     }
 
     private func startLevelAnimation() {
@@ -111,6 +160,7 @@ final class RecorderSupervisor: ObservableObject {
                     self.isRecording = false
                     self.process = nil
                     self.stopLevelAnimation()
+                    self.stopStatusTimer()
                 }
             }
             do {
@@ -120,6 +170,7 @@ final class RecorderSupervisor: ObservableObject {
                 meetingName = name.isEmpty ? "Untitled meeting" : name
                 transcriptURL = out
                 startLevelAnimation()
+                startStatusTimer()
             } catch {
                 notify("Couldn't start recording", error.localizedDescription)
             }
