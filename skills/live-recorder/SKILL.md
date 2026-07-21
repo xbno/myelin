@@ -30,8 +30,11 @@ loads. Don't assume `~/.claude/skills/live-recorder`: project installs and
 Cowork sessions place the skill elsewhere.
 
 - Auto-selects the **newest** transcript in the recordings dir:
-  `$LIVE_RECORDER_DIR` if set, else `~/ml/myelin/recordings/`, else
-  `~/recordings/` (where a folder mounted into a Cowork session lands).
+  `$LIVE_RECORDER_DIR` if set, else `~/ml/myelin/recordings/`, else the
+  Cowork-session mounts (`~/mnt/**/recordings`, or the folder's original
+  `/Users/<user>/…` path). In a Cowork session the recordings folder (or the
+  repo containing it) must be **attached to the session** for any of this to
+  be visible.
 - Output: header `<file> — segments 5–12 of 12`, then one
   `**Me (m:ss):** …` / `**Them (m:ss):** …` line per new segment
   (`**S1/S2 (m:ss):**` once diarization is on — mic is always Me).

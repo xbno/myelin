@@ -24,14 +24,20 @@ def default_dir() -> Path:
     env = os.environ.get("LIVE_RECORDER_DIR")
     if env:
         return Path(env).expanduser()
-    primary = Path.home() / "ml/myelin/recordings"
-    if primary.is_dir():
-        return primary
-    # In a Cowork/VM session, "home" is the session dir and folders attached
-    # to the session mount directly under it — a mounted recordings folder
-    # shows up as ~/recordings.
-    alt = Path.home() / "recordings"
-    return alt if alt.is_dir() else primary
+    home = Path.home()
+    candidates = [home / "ml/myelin/recordings", home / "recordings"]
+    # Cowork/VM sessions: home is /sessions/<name>; folders attached to the
+    # session mount under ~/mnt (by basename — connecting the myelin repo
+    # gives ~/mnt/myelin/recordings) and are often also exposed at their
+    # original Mac /Users/<user>/ path. Cover all of these.
+    candidates += sorted(home.glob("mnt/recordings"))
+    candidates += sorted(home.glob("mnt/*/recordings"))
+    candidates += sorted(home.glob("mnt/*/*/recordings"))
+    candidates += sorted(Path("/Users").glob("*/ml/myelin/recordings"))
+    for c in candidates:
+        if c.is_dir():
+            return c
+    return candidates[0]
 
 
 DEFAULT_DIR = default_dir()
@@ -151,6 +157,13 @@ def main() -> int:
     path = Path(args.file).expanduser() if args.file else newest_transcript(directory)
     if path is None or not path.exists():
         print(f"no transcript found (searched {directory}); is the recorder running?")
+        print(
+            "if this is a sandboxed session: attach the recordings folder to the "
+            "session, or pass --dir (the Mac path, e.g. "
+            "/Users/<user>/ml/myelin/recordings, usually works for attached "
+            "folders). Do NOT retry blindly.",
+            file=sys.stderr,
+        )
         return 1
 
     # An unwritable state dir must not fail the pull (e.g. Cowork's VM: the
