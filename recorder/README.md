@@ -24,9 +24,20 @@ subscription.
 cd recorder && ./install.sh
 ```
 
-Requires macOS 26+ and Xcode Command Line Tools. First run downloads the
-speech + diarization models and triggers two one-time permission prompts
-(System Audio Recording, Microphone) for your terminal app.
+That builds and installs both the `recorder` CLI (to `~/.local/bin`) and the
+`live-recorder` Claude skill (to `~/.claude/skills`). Requires macOS 26+ and
+Xcode Command Line Tools. First run downloads the speech + diarization models
+and triggers two one-time permission prompts (System Audio Recording,
+Microphone) for your terminal app.
+
+Optional add-ons:
+
+- **Menu-bar app** (no terminal needed): `make app-install` — next section.
+- **Real speaker names on Meet/Teams/Zoom calls**: load the `meet-tap/` Chrome
+  extension — see [meet-tap/README.md](meet-tap/README.md).
+- **Skill only** (e.g. after pulling skill changes): `make skill`. To share the
+  skill outside this repo (upload to claude.ai → Settings → Capabilities →
+  Skills): `make skill-zip` drops a zip in `~/Downloads`.
 
 ## Menu-bar app (LiveRecorder.app)
 
@@ -82,11 +93,15 @@ gitignored (call transcripts are never committed).
 - **Voice samples**: put 5–10s clips in
   `~/ml/myelin/recordings/speakers/` — `Alice.wav` makes
   that voice show up as `Alice`. Mic lines are always you.
-- **Google Meet integration** (`meet-tap/`, optional): a tiny Chrome extension
-  reads Meet's caption speaker names and streams them to the recorder on
-  localhost. Names apply live AND the diarizer adopts them for that voice —
-  so people stay identified after captions stop, during screen share, and on
-  future non-Meet calls. See `meet-tap/README.md`.
+- **Meeting-app integration** (`meet-tap/`, optional): a tiny Chrome extension
+  reads the **active speaker** from the meeting page's DOM (captions as
+  fallback) on Google Meet, Teams (web), and Zoom (web client) and streams
+  the name to the recorder on localhost — the same method reference recorder's
+  Companion extension uses. Names apply live, the diarizer adopts them for
+  that voice, and at session end each newly named voice is saved to
+  `speakers/<Name>.wav` — so people stay identified with the extension off,
+  during screen share, and on every future call on any platform (including
+  desktop apps). See `meet-tap/README.md`.
 
 **Live view in the terminal**: in-progress hypotheses repaint a status line;
 finalized lines print as `me> …` / `them> …` / `Alex> …`.
@@ -132,8 +147,10 @@ cross-bleed (if they do — headphones).
 
 ## Judging quality / gotchas
 
-- **Wear headphones.** Without them the mic hears the speakers and remote
-  speech bleeds into your "me" channel (echo cancellation is on the roadmap).
+- **No headphones? Turn on echo cancellation.** Without AEC the mic hears the
+  speakers and remote speech bleeds into your "me" channel. The menu-bar app
+  has it on by default; the CLI needs `--aec`. With headphones you don't need
+  either.
 - Diarization needs a few seconds of a new voice before it splits reliably;
   very short interjections may get the neighbor's label.
 - Synthetic voices (`say`, TTS demos) don't diarize — EEND models key on real
@@ -166,8 +183,13 @@ overlap.
 
 ## Roadmap
 
-- Acoustic echo cancellation (no-headphones mode)
-- Persistent cross-call speaker memory (auto-recognize once named)
-- Menu-bar app wrapper + signed/notarized distribution
+- Signed/notarized distribution (Apple Developer account → DMG) and
+  a Chrome Web Store (unlisted) listing for meet-tap
+- Native Accessibility adapter for the Zoom/Teams **desktop** apps (they
+  expose active speaker to AX — spike tooling in `scripts/ax-spike.sh`)
 - Parakeet-v3 ASR option (FluidAudio) for messy multi-accent calls
-- local analysis tool live feed (`QueueSource` ← transcript JSONL)
+- Calendar-attendee hints (map unknown voices to the meeting's invite list)
+
+Shipped: AEC (`--aec`, app default), menu-bar app, cross-call speaker memory
+(voices named once are saved to `speakers/` and auto-recognized), meet-tap
+active-speaker naming, local analysis tool live feed, Claude live-pull skill.

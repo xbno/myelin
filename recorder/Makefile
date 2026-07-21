@@ -5,7 +5,7 @@ SKILL_DST := $(HOME)/.claude/skills/live-recorder
 
 APP := LiveRecorder.app
 
-.PHONY: build install skill app app-install uninstall clean
+.PHONY: build install skill skill-zip app app-install uninstall clean
 
 build:
 	swift build -c release
@@ -20,6 +20,14 @@ skill:
 	mkdir -p $(SKILL_DST)
 	cp -R $(SKILL_SRC)/SKILL.md $(SKILL_SRC)/scripts $(SKILL_DST)/
 	@echo "installed Claude skill → $(SKILL_DST)"
+
+# Zip the skill for sharing (upload at claude.ai → Settings → Capabilities →
+# Skills, or hand to a user). Zip root must be the skill folder itself.
+skill-zip:
+	rm -f $(HOME)/Downloads/live-recorder-skill.zip
+	cd $(SKILL_SRC)/.. && zip -r -X $(HOME)/Downloads/live-recorder-skill.zip \
+		live-recorder -x "*.DS_Store"
+	@echo "wrote ~/Downloads/live-recorder-skill.zip"
 
 # Menu-bar app bundle. Bundles the `recorder` binary inside so the app is
 # self-contained. Ad-hoc signed so TCC (mic/system-audio/calendar) can attribute
