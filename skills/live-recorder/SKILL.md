@@ -26,7 +26,7 @@ a Cowork VM that folder does **not exist until attached** — so attaching is
 **step 1, before any pull** (skip only if the session already has it, e.g.
 opened via the recorder's ⌥⌘C hotkey, which pre-attaches it). Request access
 to `~/ml/myelin` with the folder-access tool; its response prints the
-connected path. From then on always pull with that path pinned:
+connected path. From then on always pull with the recordings path pinned:
 
 ```bash
 LIVE_RECORDER_DIR=<connected-path>/recordings python3 <skill-dir>/scripts/pull.py

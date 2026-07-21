@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
   "name": "meet-tap (live-recorder)",
-  "version": "0.1.0",
-  "description": "Reports Google Meet's active speaker name to the local live-recorder (127.0.0.1 only).",
+  "version": "0.2.0",
+  "description": "Reports the active speaker on Google Meet, Microsoft Teams (web), and Zoom (web client) to the local live-recorder (127.0.0.1 only).",
   "content_scripts": [
     {
-      "matches": ["https://meet.google.com/*"],
+      "matches": [
+        "https://meet.google.com/*",
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*",
+        "https://*.zoom.us/wc/*",
+        "https://zoom.us/wc/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

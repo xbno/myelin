@@ -42,6 +42,10 @@ struct Main {
                 meetPort = args.isEmpty ? meetPort : UInt16(args.removeFirst()) ?? meetPort
             case "--fast":
                 fast = true  // quicker finalization, possibly lower accuracy (A/B it)
+            case "--ax-dump", "--ax-watch":
+                let app = (args.first == "--app") ? (args.dropFirst().first) : nil
+                AXProbe.run(watch: arg == "--ax-watch", bundleID: app)
+                return
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
@@ -119,10 +123,10 @@ struct Main {
                 if diarize {
                     let d = SystemDiarizer()
                     do {
-                        let defaultSpeakers = baseDir.appendingPathComponent("speakers")
+                        // Passed even when the dir doesn't exist yet: hint-named
+                        // voices are saved there at session end.
                         let enrollDir = speakersDir.map { URL(fileURLWithPath: $0) }
-                            ?? (FileManager.default.fileExists(atPath: defaultSpeakers.path)
-                                ? defaultSpeakers : nil)
+                            ?? baseDir.appendingPathComponent("speakers")
                         try await d.start(enrollDir: enrollDir)
                         diarizer = d
                     } catch {
@@ -156,7 +160,7 @@ struct Main {
                         d?.adoptName(name, t0: t0, t1: t1)
                         return name
                     }
-                    return d?.label(t0: t0, t1: t1)
+                    return await d?.labelWaiting(t0: t0, t1: t1)
                 }
                 try await sysChannel.start()
                 tap = SystemAudioTap(channel: sysChannel, diarizer: diarizer)

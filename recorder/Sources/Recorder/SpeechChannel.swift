@@ -18,8 +18,9 @@ final class SpeechChannel {
     private var analyzerTask: Task<Void, Never>?
 
     /// Optional speaker labeler (diarization): maps an utterance's [t0, t1] in
-    /// stream seconds to a speaker label ("S2" or an enrolled name).
-    var labeler: ((Double, Double) -> String?)?
+    /// stream seconds to a speaker label ("S2" or an enrolled name). Async so
+    /// it can wait for the diarizer to catch up to freshly-finalized audio.
+    var labeler: ((Double, Double) async -> String?)?
 
     /// Optional sink for in-flight (volatile) hypotheses — feeds the live view.
     var partials: PartialStore?
@@ -68,7 +69,7 @@ final class SpeechChannel {
                         let t1: Double? = range.end.seconds.isFinite ? range.end.seconds : nil
                         var speaker: String?
                         if let t0, let t1, let labeler = self?.labeler {
-                            speaker = labeler(t0, t1)
+                            speaker = await labeler(t0, t1)
                         }
                         self?.partials?.clear(src)
                         await writer.write(
