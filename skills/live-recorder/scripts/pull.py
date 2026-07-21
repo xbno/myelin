@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -37,14 +38,44 @@ DEFAULT_DIR = default_dir()
 SKILL_DIR = Path(__file__).resolve().parent.parent
 
 
-def write_state(state_file: Path, cursor: int, session: str) -> None:
+def write_state(state_file: Path | None, cursor: int, session: str) -> None:
     """Atomically persist the cursor: write a temp file then os.replace (an
     atomic rename on POSIX). No lock needed — each session owns its own state
     file, so there is a single writer, and the rename can't leave a torn file
-    even if the process dies mid-write."""
-    tmp = state_file.with_name(f"{state_file.name}.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps({"cursor": cursor, "session": session, "updated_at": time.time()}))
-    os.replace(tmp, state_file)
+    even if the process dies mid-write.
+
+    Never raises: a cursor that can't be saved must not fail the pull (the
+    transcript was already printed) — warn and carry on; the next pull just
+    repeats these lines."""
+    if state_file is None:
+        return
+    try:
+        tmp = state_file.with_name(f"{state_file.name}.{os.getpid()}.tmp")
+        tmp.write_text(
+            json.dumps({"cursor": cursor, "session": session, "updated_at": time.time()})
+        )
+        os.replace(tmp, state_file)
+    except OSError as e:
+        print(f"warning: cursor not saved ({e}) — next pull may repeat lines", file=sys.stderr)
+
+
+def writable_dir(candidates) -> Path | None:
+    """First candidate directory we can actually write to (probe write — a
+    dir can exist but be unwritable, e.g. /tmp/<dir> owned by another user in
+    a sandboxed VM)."""
+    for cand in candidates:
+        if not cand:
+            continue
+        d = Path(cand).expanduser()
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            probe = d / f".probe.{os.getpid()}"
+            probe.write_text("")
+            probe.unlink()
+            return d
+        except OSError:
+            continue
+    return None
 
 
 def session_key(explicit: str | None) -> str:
@@ -90,7 +121,11 @@ def main() -> int:
         help="print the whole transcript from the top (ignores the cursor), then "
         "continue incrementally from the end on the next pull",
     )
-    ap.add_argument("--state-dir", default=str(SKILL_DIR / "state"), help="cursor storage dir")
+    ap.add_argument(
+        "--state-dir",
+        help="cursor storage dir (default: first writable of skill dir, "
+        "~/.cache/live-recorder, tempdir)",
+    )
     ap.add_argument(
         "--session",
         help="cursor namespace (default: this Claude session, so parallel "
@@ -118,12 +153,20 @@ def main() -> int:
         print(f"no transcript found (searched {directory}); is the recorder running?")
         return 1
 
-    state_dir = Path(args.state_dir).expanduser()
-    state_dir.mkdir(parents=True, exist_ok=True)
-    state_file = state_dir / f"{path.stem}.{session}.json"
+    # An unwritable state dir must not fail the pull (e.g. Cowork's VM: the
+    # mounted skill dir or /tmp can be read-only / other-owned) — fall back.
+    state_dir = writable_dir([
+        args.state_dir,
+        SKILL_DIR / "state",
+        Path.home() / ".cache/live-recorder",
+        Path(tempfile.gettempdir()) / f"live-recorder-{os.getuid()}",
+    ])
+    state_file = state_dir / f"{path.stem}.{session}.json" if state_dir else None
+    if state_dir is None:
+        print("warning: no writable state dir — every pull will print from the top", file=sys.stderr)
 
     cursor = 0
-    if state_file.exists():
+    if state_file is not None and state_file.exists():
         try:
             cursor = json.loads(state_file.read_text()).get("cursor", 0)
         except (json.JSONDecodeError, OSError):
