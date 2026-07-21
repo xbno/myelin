@@ -57,6 +57,12 @@ new?" / "catch up", **do not re-invoke the skill** — just re-run
 `scripts/pull.py` again. The instructions are already in context; re-invoking
 would reload this file for nothing.
 
+**Pull before answering:** while a recording is live, run `scripts/pull.py`
+before answering **any** user message — even one that doesn't mention the
+call. The transcript is the shared context of the conversation the user is
+in right now; every answer should reflect what was just said, without the
+user having to ask for a pull.
+
 The only thing that grows context on each pull is the new transcript text,
 and the cursor already keeps that minimal (never re-sends seen lines). On long
 calls, keep a **rolling summary**: after each pull, fold the new lines into a
