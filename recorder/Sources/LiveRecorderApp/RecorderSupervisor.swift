@@ -13,6 +13,9 @@ final class RecorderSupervisor: ObservableObject {
     @Published private(set) var meetingName = ""
     @Published private(set) var transcriptURL: URL?
     @Published private(set) var launchAtLogin = false
+    /// Echo cancellation (macOS voice-processing). Off by default; toggle in the
+    /// menu to test speakers-free. Takes effect on the next Start.
+    @Published var aecEnabled = false
     /// Drives the menu-bar waveform animation (0…1 bar height). SymbolEffect
     /// doesn't animate in a MenuBarExtra label, so we cycle this on a timer and
     /// the label re-renders via `variableValue`.
@@ -99,7 +102,9 @@ final class RecorderSupervisor: ObservableObject {
 
             let p = Process()
             p.executableURL = bin
-            p.arguments = ["--out", out.path]
+            var args = ["--out", out.path]
+            if aecEnabled { args.append("--aec") }
+            p.arguments = args
             p.terminationHandler = { _ in
                 Task { @MainActor in
                     self.isRecording = false

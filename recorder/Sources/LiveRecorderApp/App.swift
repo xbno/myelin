@@ -16,6 +16,9 @@ struct LiveRecorderApp: App {
             }
             Divider()
             Button("Open transcripts folder") { supervisor.openTranscriptsFolder() }
+            Button(supervisor.aecEnabled ? "✓ Echo cancellation (no headphones)" : "Echo cancellation (no headphones)") {
+                supervisor.aecEnabled.toggle()
+            }
             Button(supervisor.launchAtLogin ? "✓ Launch at Login" : "Launch at Login") {
                 supervisor.toggleLaunchAtLogin()
             }
