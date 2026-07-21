@@ -22,11 +22,16 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 ## Pull the transcript (the main loop)
 
 ```bash
-~/.claude/skills/live-recorder/scripts/pull.py
+<skill-dir>/scripts/pull.py
 ```
 
-- Auto-selects the **newest** transcript in
-  `~/ml/myelin/recordings/` (override with `$LIVE_RECORDER_DIR`).
+`<skill-dir>` is this skill's base directory — announced when the skill
+loads. Don't assume `~/.claude/skills/live-recorder`: project installs and
+Cowork sessions place the skill elsewhere.
+
+- Auto-selects the **newest** transcript in the recordings dir:
+  `$LIVE_RECORDER_DIR` if set, else `~/ml/myelin/recordings/`, else
+  `~/recordings/` (where a folder mounted into a Cowork session lands).
 - Output: header `<file> — segments 5–12 of 12`, then one
   `**Me (m:ss):** …` / `**Them (m:ss):** …` line per new segment
   (`**S1/S2 (m:ss):**` once diarization is on — mic is always Me).
@@ -64,7 +69,7 @@ context rather than accumulating.
   the machine.
 - Mic lines are the user ("Me"); system-audio lines are everyone else,
   diarized into S1/S2/… — or real names for voices enrolled via samples in
-  `~/ml/myelin/recordings/speakers/` (e.g. `Alice.wav`).
+  `speakers/` inside the recordings dir (e.g. `Alice.wav`).
 - If the user asks you to take notes / research topics live, poll, then act
   on the new lines each cycle; don't re-summarize what you already covered.
 - Cursor is per-session per-call (keyed by `CLAUDE_CODE_SESSION_ID`): two

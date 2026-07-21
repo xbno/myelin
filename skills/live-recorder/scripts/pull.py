@@ -19,9 +19,21 @@ from pathlib import Path
 
 # Default under the user's project folder (not ~/Library, a macOS-protected
 # path sandboxed agents like Cowork can't mount). Override with $LIVE_RECORDER_DIR.
-DEFAULT_DIR = Path(
-    os.environ.get("LIVE_RECORDER_DIR") or (Path.home() / "ml/myelin/recordings")
-).expanduser()
+def default_dir() -> Path:
+    env = os.environ.get("LIVE_RECORDER_DIR")
+    if env:
+        return Path(env).expanduser()
+    primary = Path.home() / "ml/myelin/recordings"
+    if primary.is_dir():
+        return primary
+    # In a Cowork/VM session, "home" is the session dir and folders attached
+    # to the session mount directly under it — a mounted recordings folder
+    # shows up as ~/recordings.
+    alt = Path.home() / "recordings"
+    return alt if alt.is_dir() else primary
+
+
+DEFAULT_DIR = default_dir()
 SKILL_DIR = Path(__file__).resolve().parent.parent
 
 
