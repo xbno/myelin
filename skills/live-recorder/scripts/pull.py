@@ -158,11 +158,9 @@ def main() -> int:
     if path is None or not path.exists():
         print(f"no transcript found (searched {directory}); is the recorder running?")
         print(
-            "if this is a sandboxed session: attach the recordings folder to the "
-            "session, or pass --dir (the Mac path, e.g. "
-            "/Users/<user>/ml/myelin/recordings, usually works for attached "
-            "folders). Do NOT retry blindly.",
-            file=sys.stderr,
+            "if this is a sandboxed session: ATTACH the recordings folder to the "
+            "session first (folder-access tool, e.g. ~/ml/myelin) — it does "
+            "not exist inside the VM until attached. Do NOT retry without attaching."
         )
         return 1
 

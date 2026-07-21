@@ -19,15 +19,25 @@ recorder --help          # flags: --out FILE, --locale, --mic-only, --system-onl
 
 If `recorder` is not on PATH, build/install it from the repo: `cd recorder && make install`.
 
+## Sandboxed session (Cowork)? Attach the folder FIRST
+
+In a sandboxed session the recordings don't exist inside the VM until the
+folder is attached. **Before the first pull**, request access to
+`~/ml/myelin` (or the recordings folder) with the folder-access tool.
+If a pull says "no transcript found", attach the folder — do **not** retry
+without it.
+
 ## Pull the transcript (the main loop)
 
 ```bash
-<skill-dir>/scripts/pull.py
+python3 <skill-dir>/scripts/pull.py
 ```
 
 `<skill-dir>` is this skill's base directory — announced when the skill
 loads. Don't assume `~/.claude/skills/live-recorder`: project installs and
-Cowork sessions place the skill elsewhere.
+Cowork sessions place the skill elsewhere. Always invoke via `python3` —
+skill mounts are often noexec, so running the script directly fails with
+"Permission denied".
 
 - Auto-selects the **newest** transcript in the recordings dir:
   `$LIVE_RECORDER_DIR` if set, else `~/ml/myelin/recordings/`, else the
