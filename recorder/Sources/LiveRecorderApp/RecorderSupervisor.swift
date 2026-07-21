@@ -191,15 +191,14 @@ final class RecorderSupervisor: ObservableObject {
     /// transcript = the active recording.
     func askClaudeAboutCall() {
         let prompt = "/live-recorder"
-        // Also put it on the clipboard: if the deep-link prefill doesn't populate
-        // (Cowork already running, or the composer ignores q), the user just ⌘V.
+        // Route verified against Claude.app's deep-link handler: cowork/new?q=
+        // maps to /task/new?q= (q capped at 1024 chars, URLSearchParams-decoded,
+        // so raw "/" and %2F are equivalent). Prefill is flaky when the app is
+        // already running (warm path dispatches a navigate event instead of a
+        // fresh load) — the clipboard copy below covers that: the user just ⌘V.
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)
-        // Fully percent-encode (incl. the leading "/", which .urlQueryAllowed
-        // leaves raw and Cowork's q-parser seems to choke on).
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "/?&=#")
-        let q = prompt.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        let q = prompt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         if let url = URL(string: "claude://cowork/new?q=\(q)") {
             NSWorkspace.shared.open(url)
         }
