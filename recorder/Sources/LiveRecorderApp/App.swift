@@ -3,17 +3,14 @@ import Carbon.HIToolbox
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var toggleKey: GlobalHotKey?
-    private var coworkKey: GlobalHotKey?
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         // ⌥⌘R toggles recording; ⌥⌘C opens Cowork with /live-recorder prefilled.
-        toggleKey = GlobalHotKey(
+        HotKeyCenter.shared.register(
             keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(cmdKey | optionKey)
         ) {
             Task { @MainActor in RecorderSupervisor.shared.toggle() }
         }
-        coworkKey = GlobalHotKey(
+        HotKeyCenter.shared.register(
             keyCode: UInt32(kVK_ANSI_C), modifiers: UInt32(cmdKey | optionKey)
         ) {
             Task { @MainActor in RecorderSupervisor.shared.askClaudeAboutCall() }
