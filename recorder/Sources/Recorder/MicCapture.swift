@@ -38,16 +38,29 @@ final class MicCapture {
                 Console.status("mic AEC unavailable (\(error)) — continuing without; use headphones")
             }
         }
-        let format = input.outputFormat(forBus: 0)
-        guard format.sampleRate > 0 else {
+        let nodeFormat = input.outputFormat(forBus: 0)
+        guard nodeFormat.sampleRate > 0 else {
             throw RecorderError("no microphone input available")
         }
-        input.installTap(onBus: 0, bufferSize: 4096, format: format) { [channel] buffer, _ in
+        // Default path: tap the node's own format (proven working). AEC path:
+        // voice-processing makes the node multi-channel and a manual
+        // AVAudioConverter (SpeechChannel's) yields SILENCE on those buffers, so
+        // install a MONO tap and let AVAudioEngine's own conversion downmix
+        // correctly (Apple forums 771530).
+        let tapFormat: AVAudioFormat =
+            aec
+            ? (AVAudioFormat(
+                commonFormat: .pcmFormatFloat32, sampleRate: nodeFormat.sampleRate,
+                channels: 1, interleaved: false) ?? nodeFormat)
+            : nodeFormat
+        input.installTap(onBus: 0, bufferSize: 4096, format: tapFormat) { [channel] buffer, _ in
             channel.feed(buffer)
         }
         engine.prepare()
         try engine.start()
-        Console.status("mic capture started (\(Int(format.sampleRate)) Hz, \(format.channelCount) ch)")
+        Console.status(
+            "mic capture started (\(Int(tapFormat.sampleRate)) Hz, \(tapFormat.channelCount) ch"
+                + (aec ? ", AEC" : "") + ")")
     }
 
     func stop() {

@@ -10,7 +10,9 @@ struct Main {
         var micOnly = false
         var systemOnly = false
         var diarize = true
-        var aec = true
+        var aec = false  // opt-in via --aec: macOS voice-processing echo
+        // cancellation. Default off so the proven mic path stays untouched
+        // until AEC is confirmed working on a real speakers-on call.
         var speakersDir: String?
         var diarizeFile: String?
         var meetPort: UInt16 = 8737  // --meet-port 0 disables
@@ -28,8 +30,8 @@ struct Main {
                 micOnly = true
             case "--system-only":
                 systemOnly = true
-            case "--no-aec":
-                aec = false
+            case "--aec":
+                aec = true
             case "--no-diarize":
                 diarize = false
             case "--speakers-dir":
@@ -43,7 +45,7 @@ struct Main {
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
-                                [--no-diarize] [--no-aec] [--speakers-dir DIR] [--meet-port N] [--fast]
+                                [--no-diarize] [--aec] [--speakers-dir DIR] [--meet-port N] [--fast]
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
