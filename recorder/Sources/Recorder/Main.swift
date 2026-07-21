@@ -181,6 +181,18 @@ struct Main {
             source.resume()
         }
 
+        // Also stop when the parent (menubar app or shell) dies — otherwise
+        // killing the parent orphans us and the mic stays live with nothing
+        // left that can stop it.
+        let ppid = getppid()
+        let parentExit = DispatchSource.makeProcessSource(
+            identifier: ppid, eventMask: .exit, queue: .main)
+        parentExit.setEventHandler { stopped.continuation.yield() }
+        parentExit.resume()
+        if ppid <= 1 || kill(ppid, 0) != 0 {  // parent already gone (raced our launch)
+            stopped.continuation.yield()
+        }
+
         for await _ in stopped.stream { break }
 
         Console.status("stopping — finalizing transcription…")

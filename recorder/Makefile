@@ -39,6 +39,7 @@ app:
 
 app-install: app
 	@killall LiveRecorderApp 2>/dev/null || true
+	@killall recorder 2>/dev/null || true
 	@rm -rf "/Applications/$(APP)"
 	cp -R $(APP) /Applications/
 	open "/Applications/$(APP)"

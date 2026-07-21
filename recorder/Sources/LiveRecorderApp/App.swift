@@ -16,6 +16,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in RecorderSupervisor.shared.askClaudeAboutCall() }
         }
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Quit must not orphan a live recording — SIGTERM the child so it
+        // finalizes its transcript. (The recorder also self-stops on parent
+        // death, so ungraceful exits are covered too.)
+        MainActor.assumeIsolated { RecorderSupervisor.shared.stop() }
+    }
 }
 
 @main
