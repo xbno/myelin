@@ -3,14 +3,20 @@ import Carbon.HIToolbox
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var hotKey: GlobalHotKey?
+    private var toggleKey: GlobalHotKey?
+    private var coworkKey: GlobalHotKey?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // ⌥⌘R toggles recording, system-wide.
-        hotKey = GlobalHotKey(
+        // ⌥⌘R toggles recording; ⌥⌘C opens Cowork with /live-recorder prefilled.
+        toggleKey = GlobalHotKey(
             keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(cmdKey | optionKey)
         ) {
             Task { @MainActor in RecorderSupervisor.shared.toggle() }
+        }
+        coworkKey = GlobalHotKey(
+            keyCode: UInt32(kVK_ANSI_C), modifiers: UInt32(cmdKey | optionKey)
+        ) {
+            Task { @MainActor in RecorderSupervisor.shared.askClaudeAboutCall() }
         }
     }
 }
@@ -31,6 +37,7 @@ struct LiveRecorderApp: App {
                 Button("Start recording  (⌥⌘R)") { supervisor.start() }
             }
             Divider()
+            Button("Ask Claude about this call  (⌥⌘C)") { supervisor.askClaudeAboutCall() }
             Button("Open transcripts folder") { supervisor.openTranscriptsFolder() }
             Button(supervisor.aecEnabled ? "✓ Echo cancellation (no headphones)" : "Echo cancellation (no headphones)") {
                 supervisor.aecEnabled.toggle()

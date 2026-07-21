@@ -185,6 +185,18 @@ final class RecorderSupervisor: ObservableObject {
         NSWorkspace.shared.open(URL(string: "http://127.0.0.1:8737")!)
     }
 
+    /// Open a fresh Claude Cowork session with the `/live-recorder` skill
+    /// invocation prefilled (deep link prefills; the user presses Enter — the
+    /// scheme intentionally doesn't auto-send). The skill auto-picks the newest
+    /// transcript = the active recording.
+    func askClaudeAboutCall() {
+        let prompt = "/live-recorder"
+        let q = prompt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "claude://cowork/new?q=\(q)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     func openTranscriptsFolder() {
         NSWorkspace.shared.open(recordingsDir)
     }
