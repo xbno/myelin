@@ -49,6 +49,13 @@ def default_dir() -> Path:
 DEFAULT_DIR = default_dir()
 SKILL_DIR = Path(__file__).resolve().parent.parent
 
+# Cap stdout per run: oversized tool output gets offloaded by the harness to
+# a host-side tool-results file that sandboxed (Cowork) sessions can't read
+# ("File is outside allowed folders"). Stay safely under that threshold; the
+# cursor only advances past what was actually printed, so nothing is lost —
+# the next run continues where this one stopped.
+MAX_CHARS = 25_000
+
 
 def write_state(state_file: Path | None, cursor: int, session: str) -> None:
     """Atomically persist the cursor: write a temp file then os.replace (an
@@ -230,14 +237,27 @@ def main() -> int:
         print(f"no new segments (still {total}) — {path.name}")
         return 0
 
-    print(f"{path.name} — segments {cursor + 1}–{total} of {total}")
+    out, used, consumed = [], 0, 0
     for line in new:
         text = (line.get("text") or "").strip()
         if not text:
+            consumed += 1  # nothing to print; just advance past it
             continue
-        print(f"**{label(line)} ({fmt_time(line.get('t0'), base)}):** {text}")
+        s = f"**{label(line)} ({fmt_time(line.get('t0'), base)}):** {text}"
+        if out and used + len(s) > MAX_CHARS:
+            break
+        out.append(s)
+        used += len(s) + 1
+        consumed += 1
 
-    write_state(state_file, total, session)
+    print(f"{path.name} — segments {cursor + 1}–{cursor + consumed} of {total}")
+    for s in out:
+        print(s)
+    remaining = total - (cursor + consumed)
+    if remaining:
+        print(f"(output capped — {remaining} more segments; run again to continue)")
+
+    write_state(state_file, cursor + consumed, session)
     return 0
 
 

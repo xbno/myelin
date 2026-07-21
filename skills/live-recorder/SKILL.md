@@ -58,6 +58,9 @@ skill mounts are often noexec, so running the script directly fails with
   (`**S1/S2 (m:ss):**` once diarization is on — mic is always Me).
 - `no new segments (still N)` → nothing new; wait (e.g. `sleep 30`) and pull
   again. Polling every 20–60s during a call is plenty.
+- `(output capped — N more segments; run again to continue)` → big backlog is
+  delivered in bounded chunks (so the harness never offloads the output to an
+  unreadable overflow file); just run the same command again until caught up.
 - `transcript shrank … starting over` → file was replaced; re-streams from
   the top.
 
