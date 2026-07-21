@@ -1,11 +1,9 @@
 PREFIX ?= $(HOME)/.local
 BINDIR := $(PREFIX)/bin
 SKILL_SRC := ../skills/live-recorder
-SKILL_DST := $(HOME)/.claude/skills/live-recorder
-
 APP := LiveRecorder.app
 
-.PHONY: build install skill skill-zip app app-install uninstall clean
+.PHONY: build install skill-zip app app-install uninstall clean
 
 build:
 	swift build -c release
@@ -15,11 +13,6 @@ install: build
 	install .build/release/recorder $(BINDIR)/recorder
 	@echo "installed $(BINDIR)/recorder"
 	@case ":$$PATH:" in *:"$(BINDIR)":*) ;; *) echo "NOTE: add $(BINDIR) to your PATH";; esac
-
-skill:
-	mkdir -p $(SKILL_DST)
-	cp -R $(SKILL_SRC)/SKILL.md $(SKILL_SRC)/scripts $(SKILL_DST)/
-	@echo "installed Claude skill → $(SKILL_DST)"
 
 # Zip the skill for sharing (upload at claude.ai → Settings → Capabilities →
 # Skills, or hand to a user). Zip root must be the skill folder itself.
@@ -57,7 +50,6 @@ app-install: app
 
 uninstall:
 	rm -f $(BINDIR)/recorder
-	rm -rf $(SKILL_DST)
 
 clean:
 	swift package clean

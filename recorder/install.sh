@@ -18,20 +18,21 @@ if ! xcode-select -p >/dev/null 2>&1; then
     exit 1
 fi
 
-# 2. Build + install binary and Claude skill
-make install
-make skill
+# 2. Build + install + launch the menu-bar app
+make app-install
 
 echo
 echo "== done =="
-echo "Run:  recorder            (Ctrl-C to stop; transcript path is printed)"
+echo "LiveRecorder is running — look for the waveform icon in your menu bar"
+echo "(gray = idle; red and bouncing = recording)."
 echo
-echo "First run:"
+echo "Shortcuts (global, from any app):"
+echo "  ⌥⌘R   start / stop recording"
+echo "  ⌥⌘C   ask Claude about the live call (opens Cowork with the transcript)"
+echo
+echo "First recording:"
 echo "  - downloads the speech + diarization models (one time, ~a minute)"
-echo "  - macOS will ask for System Audio Recording and Microphone permission"
-echo "    for your terminal app — click Allow, then rerun."
+echo "  - macOS asks for Microphone + System Audio Recording (and Calendar,"
+echo "    used to name transcripts after your current meeting) — click Allow."
 echo
-echo "Named speakers: drop short voice samples (Alice.wav, Bob.m4a, 5-10s of"
-echo "them talking) into:"
-echo "  ~/Library/Application Support/live-recorder/speakers/"
-echo "Their lines will be labeled with their names instead of S1/S2."
+echo "Transcripts: menu-bar icon → Open transcripts folder."

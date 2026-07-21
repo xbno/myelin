@@ -24,37 +24,51 @@ subscription.
 cd recorder && ./install.sh
 ```
 
-That builds and installs both the `recorder` CLI (to `~/.local/bin`) and the
-`live-recorder` Claude skill (to `~/.claude/skills`). Requires macOS 26+ and
-Xcode Command Line Tools. First run downloads the speech + diarization models
-and triggers two one-time permission prompts (System Audio Recording,
-Microphone) for your terminal app.
+That builds `LiveRecorder.app`, installs it to `/Applications`, and launches
+it. Requires macOS 26+ and Xcode Command Line Tools. Look for the waveform
+icon in your menu bar:
+
+| Off (idle) | On (recording) |
+|------------|----------------|
+| ![menu bar, idle](docs/menu-bar-off.png) | ![menu bar, recording](docs/menu-bar-on.png) |
+
+Gray waveform = idle. Red, bouncing waveform = recording.
+
+**Shortcuts** (global — they work from any app):
+
+- **⌥⌘R** — start / stop recording. Recordings are named after your current
+  calendar event (it asks for a name when there isn't one).
+- **⌥⌘C** — ask Claude about the live call: opens Claude Cowork with the
+  transcript folder attached and `/live-recorder` ready to go.
+
+The menu has the rest: open the live transcript in a browser, open the
+transcripts folder, echo cancellation (on by default — lets you skip
+headphones), Launch at Login, quit.
+
+Your **first recording** downloads the speech + diarization models (one time,
+~a minute) and triggers one-time permission prompts — Microphone, System
+Audio Recording, and Calendar (used only to name transcripts). Click Allow.
 
 Optional add-ons:
 
-- **Menu-bar app** (no terminal needed): `make app-install` — next section.
 - **Real speaker names on Meet/Teams/Zoom calls**: load the `meet-tap/` Chrome
   extension — see [meet-tap/README.md](meet-tap/README.md).
-- **Skill only** (e.g. after pulling skill changes): `make skill`. To share the
-  skill outside this repo (upload to claude.ai → Settings → Capabilities →
-  Skills): `make skill-zip` drops a zip in `~/Downloads`.
+- **Claude skill**: `make skill-zip` writes `~/Downloads/live-recorder-skill.zip`;
+  upload it at claude.ai → Settings → Capabilities → Skills. It lets any
+  Claude session stream the live call's transcript incrementally.
 
-## Menu-bar app (LiveRecorder.app)
+## Building the app yourself
 
-A no-terminal way to use it: a menu-bar app that names each meeting from your
-calendar and supervises the `recorder` binary for you.
+`install.sh` is just requirement checks + `make app-install`. For development:
 
 ```bash
 cd recorder && make app        # builds LiveRecorder.app (recorder bundled inside)
-open LiveRecorder.app          # 🎙 appears in the menu bar
-# or install it:
-make app-install               # copies to /Applications
+open LiveRecorder.app          # waveform appears in the menu bar
+make app-install               # or: copy to /Applications and launch
 ```
 
-Menu: **Start recording** (names the transcript from your current calendar
-event), **Stop**, **Open live transcript** (→ http://127.0.0.1:8737), **Open
-transcripts folder**, **Quit**. It's menu-bar-only (no dock icon). First record
-prompts for Microphone + System Audio (the recorder) and Calendar (naming).
+The app is menu-bar-only (no dock icon); it supervises the `recorder` binary
+and names each transcript from your calendar.
 
 ### Running it "hacky" before we have an Apple Developer account
 
@@ -74,12 +88,15 @@ Signing/notarization is only needed to *distribute* the app. For yourself:
 Proper fix later: sign + notarize with an Apple Developer account and
 ship a DMG — then it's just drag-to-Applications.
 
-## Use
+## CLI use (terminals, scripts, hacking)
+
+The menu-bar app is the everyday way to record. There's also a plain CLI —
+`make install` puts `recorder` on your PATH (`~/.local/bin`):
 
 ```bash
 recorder                      # record + transcribe until Ctrl-C
 recorder --help               # --out, --locale, --mic-only, --system-only,
-                              # --no-diarize, --speakers-dir, --diarize-file
+                              # --no-diarize, --aec, --speakers-dir, --diarize-file
 ```
 
 Transcripts land in `~/ml/myelin/recordings/` (one `.jsonl` per call).
@@ -106,9 +123,10 @@ gitignored (call transcripts are never committed).
 **Live view in the terminal**: in-progress hypotheses repaint a status line;
 finalized lines print as `me> …` / `them> …` / `Alex> …`.
 
-**Claude integration**: `make skill` installs the `live-recorder` skill; Claude
-can then poll the active call incrementally (only new lines each pull) to take
-notes / research live. See `../skills/live-recorder/SKILL.md`.
+**Claude integration**: the `live-recorder` skill lets Claude poll the active
+call incrementally (only new lines each pull) to take notes / research live.
+`make skill-zip` packages it to `~/Downloads` for upload at claude.ai →
+Settings → Capabilities → Skills. See `../skills/live-recorder/SKILL.md`.
 
 ## Compare against reference recorder
 
