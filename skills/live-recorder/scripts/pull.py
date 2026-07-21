@@ -30,10 +30,16 @@ def default_dir() -> Path:
     # session mount under ~/mnt (by basename — connecting the myelin repo
     # gives ~/mnt/myelin/recordings) and are often also exposed at their
     # original Mac /Users/<user>/ path. Cover all of these.
-    candidates += sorted(home.glob("mnt/recordings"))
-    candidates += sorted(home.glob("mnt/*/recordings"))
-    candidates += sorted(home.glob("mnt/*/*/recordings"))
-    candidates += sorted(Path("/Users").glob("*/ml/myelin/recordings"))
+    for pattern in (
+        (home, "mnt/recordings"),
+        (home, "mnt/*/recordings"),
+        (home, "mnt/*/*/recordings"),
+        (Path("/Users"), "*/ml/myelin/recordings"),
+    ):
+        try:  # VM mounts can raise OSError mid-iteration; skip, don't crash
+            candidates += sorted(pattern[0].glob(pattern[1]))
+        except OSError:
+            continue
     for c in candidates:
         if c.is_dir():
             return c
@@ -97,8 +103,18 @@ def session_key(explicit: str | None) -> str:
     return re.sub(r"[^A-Za-z0-9_-]", "", sid)[:40] or "shared"
 
 
+def safe_mtime(p: Path) -> float:
+    try:
+        return p.stat().st_mtime
+    except OSError:  # ghost entries happen on VM mounts
+        return 0.0
+
+
 def newest_transcript(directory: Path) -> Path | None:
-    files = sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+    try:
+        files = sorted(directory.glob("*.jsonl"), key=safe_mtime)
+    except OSError:
+        return None
     return files[-1] if files else None
 
 
@@ -144,7 +160,7 @@ def main() -> int:
     directory = Path(args.dir).expanduser()
 
     if args.list:
-        files = sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        files = sorted(directory.glob("*.jsonl"), key=safe_mtime, reverse=True)
         if not files:
             print(f"no transcripts in {directory}")
             return 0
@@ -191,7 +207,7 @@ def main() -> int:
     if args.full:
         cursor = 0  # re-emit everything from the top; cursor advances to end below
 
-    raw_lines = path.read_text().splitlines()
+    raw_lines = path.read_text(errors="replace").splitlines()
     lines = []
     for raw in raw_lines:
         raw = raw.strip()

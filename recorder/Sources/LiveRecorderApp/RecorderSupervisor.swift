@@ -199,7 +199,11 @@ final class RecorderSupervisor: ObservableObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(prompt, forType: .string)
         let q = prompt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        if let url = URL(string: "claude://cowork/new?q=\(q)") {
+        // folder= pre-attaches the recordings dir to the new session, so the
+        // skill can pull immediately instead of failing then asking for access.
+        let folder = recordingsDir.path
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "claude://cowork/new?q=\(q)&folder=\(folder)") {
             NSWorkspace.shared.open(url)
         }
     }

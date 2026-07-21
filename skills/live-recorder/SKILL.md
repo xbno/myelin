@@ -21,11 +21,19 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 
 ## Sandboxed session (Cowork)? Attach the folder FIRST
 
-In a sandboxed session the recordings don't exist inside the VM until the
-folder is attached. **Before the first pull**, request access to
-`~/ml/myelin` (or the recordings folder) with the folder-access tool.
-If a pull says "no transcript found", attach the folder — do **not** retry
-without it.
+Recordings live on the user's Mac at `~/ml/myelin/recordings`. Inside
+a Cowork VM that folder does **not exist until attached** — so attaching is
+**step 1, before any pull** (skip only if the session already has it, e.g.
+opened via the recorder's ⌥⌘C hotkey, which pre-attaches it). Request access
+to `~/ml/myelin` with the folder-access tool; its response prints the
+connected path. From then on always pull with that path pinned:
+
+```bash
+LIVE_RECORDER_DIR=<connected-path>/recordings python3 <skill-dir>/scripts/pull.py
+```
+
+Never run a pull before the folder is attached, and never retry a failed
+pull without attaching first.
 
 ## Pull the transcript (the main loop)
 
@@ -65,16 +73,18 @@ resumes incrementally afterward.
 ## Workflow (context-efficient — read this)
 
 Invoke this skill **once** at the start of a call (e.g. `/live-recorder keep
-running notes`). After that, when the user says "pull" / "more" / "anything
-new?" / "catch up", **do not re-invoke the skill** — just re-run
-`scripts/pull.py` again. The instructions are already in context; re-invoking
-would reload this file for nothing.
+running notes`). **Never re-invoke it** during the call — just re-run
+`scripts/pull.py`; the instructions are already in context.
 
 **Pull before answering:** while a recording is live, run `scripts/pull.py`
 before answering **any** user message — even one that doesn't mention the
 call. The transcript is the shared context of the conversation the user is
 in right now; every answer should reflect what was just said, without the
 user having to ask for a pull.
+
+Because pulls happen automatically before every answer, **never tell the
+user to say "pull"** / "anything new?" or otherwise coach them to ask for
+updates — that's obsolete. Just answer.
 
 The only thing that grows context on each pull is the new transcript text,
 and the cursor already keeps that minimal (never re-sends seen lines). On long
