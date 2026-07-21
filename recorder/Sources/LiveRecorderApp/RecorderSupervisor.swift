@@ -13,9 +13,10 @@ final class RecorderSupervisor: ObservableObject {
     @Published private(set) var meetingName = ""
     @Published private(set) var transcriptURL: URL?
     @Published private(set) var launchAtLogin = false
-    /// Echo cancellation (macOS voice-processing). Off by default; toggle in the
-    /// menu to test speakers-free. Takes effect on the next Start.
-    @Published var aecEnabled = false
+    /// Echo cancellation (macOS voice-processing) — ON by default in the app so
+    /// it works speakers-free out of the box (verified to strip ~all system-audio
+    /// echo from the mic). Toggle off in the menu if needed. Effective next Start.
+    @Published var aecEnabled = true
     /// Drives the menu-bar waveform animation (0…1 bar height). SymbolEffect
     /// doesn't animate in a MenuBarExtra label, so we cycle this on a timer and
     /// the label re-renders via `variableValue`.

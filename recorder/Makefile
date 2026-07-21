@@ -38,6 +38,7 @@ app:
 	@echo "built $(APP) — run it with:  open $(APP)"
 
 app-install: app
+	@killall LiveRecorderApp 2>/dev/null || true
 	@rm -rf "/Applications/$(APP)"
 	cp -R $(APP) /Applications/
 	open "/Applications/$(APP)"
