@@ -1,9 +1,23 @@
 # live-recorder
 
-reference recorder-style meeting transcription, **fully on-device**: captures your mic +
-system audio, transcribes live (Apple SpeechAnalyzer, macOS 26+), labels who's
-speaking, and writes a JSONL transcript other tools can tail while the call is
-still going (Claude skill, local analysis tool).
+reference recorder-style meeting transcription, **fully on-device**, built so the
+transcript can be **streamed mid-call** to other tools.
+
+**Why:** reference recorder has no live API — a call's transcript is only available
+after it ends (and v7 encrypted the local cache, closing even the hacky
+routes). So asking Claude anything *during* a call meant copy-pasting
+transcript chunks into a session over and over, duplicating the same context
+each time. live-recorder writes an append-only JSONL transcript to disk as
+people speak, and anything can tail it: the Claude Cowork skill pulls
+incrementally (each pull returns only the new lines), so one session follows
+the whole call with live Q&A and zero re-pasting — and downstream projects
+like local analysis tool can ride the same stream. Being on-device also means no
+bot joins your call, no audio leaves your Mac, no subscription — and a voice
+named once is recognized on every later call.
+
+**How:** captures your mic + system audio as separate streams (your side and
+theirs attributed for free), transcribes live (Apple SpeechAnalyzer,
+macOS 26+), and labels who's speaking.
 
 ## Install the app
 
