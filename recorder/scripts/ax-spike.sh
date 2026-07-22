@@ -17,8 +17,11 @@ BIN="$REPO_DIR/.build/release/recorder"
 MODE="${1:-watch}"
 if [ "$MODE" = "dump" ]; then FLAG="--ax-dump"; else FLAG="--ax-watch"; fi
 
-if ! "$BIN" "$FLAG" 2>&1 | tee /tmp/ax-spike.out | grep -q "not trusted"; then
-  cat /tmp/ax-spike.out
+# Private temp file (the output echoes names scraped from the meeting app).
+OUT="$(mktemp -t ax-spike)"
+trap 'rm -f "$OUT"' EXIT
+if ! "$BIN" "$FLAG" 2>&1 | tee "$OUT" | grep -q "not trusted"; then
+  cat "$OUT"
   exit 0
 fi
 

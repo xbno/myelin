@@ -30,7 +30,11 @@ final class MeetHints {
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             throw RecorderError("invalid meet-tap port \(port)")
         }
-        let listener = try NWListener(using: .tcp, on: nwPort)
+        // Bind loopback only. Without requiredLocalEndpoint the listener binds
+        // every interface, exposing the transcript to the whole LAN.
+        let params = NWParameters.tcp
+        params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: nwPort)
+        let listener = try NWListener(using: params)
         listener.newConnectionHandler = { [weak self] connection in
             connection.start(queue: .global())
             self?.receive(connection, buffered: Data())
@@ -165,11 +169,12 @@ final class MeetHints {
     private static func response(
         status: String, body: Data = Data(), contentType: String = "text/plain"
     ) -> Data {
+        // No CORS headers: the meet-tap POST is a simple request that ignores
+        // the response, and the live view is served same-origin. A wildcard
+        // Access-Control-Allow-Origin would let any website the user has open
+        // read the meeting transcript from 127.0.0.1.
         let head =
             "HTTP/1.1 \(status)\r\n"
-            + "Access-Control-Allow-Origin: *\r\n"
-            + "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-            + "Access-Control-Allow-Headers: *\r\n"
             + "Content-Type: \(contentType)\r\n"
             + "Content-Length: \(body.count)\r\n"
             + "Connection: close\r\n\r\n"

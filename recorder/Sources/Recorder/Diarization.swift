@@ -280,7 +280,8 @@ final class VoiceBank {
         guard rate > 0 else { return }
         let ready = clips.filter { Double($0.value.count) / rate >= clipMinSeconds }
         guard !ready.isEmpty else { return }
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         for (name, samples) in ready.sorted(by: { $0.key < $1.key }) {
             let safe = String(name.map { "/\\:\0".contains($0) ? "-" : $0 })
             let url = dir.appendingPathComponent("\(safe).wav")
@@ -299,6 +300,9 @@ final class VoiceBank {
             do {
                 let file = try AVAudioFile(forWriting: url, settings: format.settings)
                 try file.write(from: buffer)
+                // Owner-only: these are enrolled voiceprint samples.
+                try? FileManager.default.setAttributes(
+                    [.posixPermissions: 0o600], ofItemAtPath: url.path)
                 Console.status(String(format: "saved voice sample \"%@\" (%.1fs) → %@",
                                       name, Double(samples.count) / rate, url.path))
             } catch {

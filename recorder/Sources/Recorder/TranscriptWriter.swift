@@ -12,9 +12,13 @@ actor TranscriptWriter {
     init(path: String) throws {
         let url = URL(fileURLWithPath: path)
         try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700])
         if !FileManager.default.fileExists(atPath: path) {
-            FileManager.default.createFile(atPath: path, contents: nil)
+            // Owner-only: transcripts hold meeting content; don't leave them
+            // world-readable on a shared Mac.
+            FileManager.default.createFile(
+                atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
         }
         self.handle = try FileHandle(forWritingTo: url)
         try self.handle.seekToEnd()

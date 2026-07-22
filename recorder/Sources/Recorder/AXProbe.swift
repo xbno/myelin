@@ -143,8 +143,11 @@ enum AXProbe {
     // MARK: - Watch: what changes as speakers alternate
 
     private static func watchTree(_ root: AXUIElement) {
+        // Per-user temp dir (0700), not world-readable /tmp — this dumps names
+        // scraped from the meeting app's accessibility tree.
+        let logPath = (NSTemporaryDirectory() as NSString).appendingPathComponent("ax-watch.txt")
         Console.status(
-            "sampling ~20s — have DIFFERENT people talk. Full log → /tmp/ax-watch.txt; "
+            "sampling ~20s — have DIFFERENT people talk. Full log → \(logPath); "
             + "compact summary below.")
         // snapshot = ordered list of (stableKey -> semantic fingerprint)
         var snaps: [[String: String]] = []
@@ -203,7 +206,7 @@ enum AXProbe {
         }
         log += "\nvolatile static-text (appeared/disappeared):\n"
             + volatileTexts.sorted().map { "  • \($0)" }.joined(separator: "\n") + "\n"
-        try? log.write(toFile: "/tmp/ax-watch.txt", atomically: true, encoding: .utf8)
+        try? log.write(toFile: logPath, atomically: true, encoding: .utf8)
 
         print("=== semantic attributes that toggled while speakers alternated ===")
         if changed.isEmpty {
@@ -217,9 +220,9 @@ enum AXProbe {
         for t in volatileTexts.sorted().prefix(40) { print("  • \(t)") }
         if changed.isEmpty && volatileTexts.isEmpty {
             print("\n→ nothing in the AX tree tracked the speaker. That points to "
-                + "approach B (ScreenCaptureKit visual detection). Full log: /tmp/ax-watch.txt")
+                + "approach B (ScreenCaptureKit visual detection). Full log: \(logPath)")
         } else {
-            print("\n→ candidate speaking signal above. Full log: /tmp/ax-watch.txt")
+            print("\n→ candidate speaking signal above. Full log: \(logPath)")
         }
     }
 
