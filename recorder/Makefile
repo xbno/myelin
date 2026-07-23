@@ -1,6 +1,7 @@
 PREFIX ?= $(HOME)/.local
 BINDIR := $(PREFIX)/bin
 SKILL_SRC := ../skills/live-recorder
+SKILL_DST := $(HOME)/.claude/skills/live-recorder
 APP := LiveRecorder.app
 
 .PHONY: build install skill-zip app app-install uninstall clean
@@ -15,12 +16,19 @@ install: build
 	@case ":$$PATH:" in *:"$(BINDIR)":*) ;; *) echo "NOTE: add $(BINDIR) to your PATH";; esac
 
 # Zip the skill for sharing (upload at claude.ai → Settings → Capabilities →
-# Skills, or hand to a user). Zip root must be the skill folder itself.
+# Skills, or hand to a user) and sync it into the local Claude Code CLI
+# skills dir. Zip root must be the skill folder itself. The CLI sync only
+# touches SKILL.md + scripts/*.py — never state/ (per-session cursors) or
+# __pycache__, so it doesn't clobber local pull state.
 skill-zip:
 	rm -f $(HOME)/Downloads/live-recorder-skill.zip
 	cd $(SKILL_SRC)/.. && zip -r -X $(HOME)/Downloads/live-recorder-skill.zip \
 		live-recorder -x "*.DS_Store"
 	@echo "wrote ~/Downloads/live-recorder-skill.zip"
+	mkdir -p $(SKILL_DST)/scripts
+	cp $(SKILL_SRC)/SKILL.md $(SKILL_DST)/SKILL.md
+	cp $(SKILL_SRC)/scripts/*.py $(SKILL_DST)/scripts/
+	@echo "synced $(SKILL_DST) (Claude Code CLI)"
 
 # Menu-bar app bundle. Bundles the `recorder` binary inside so the app is
 # self-contained. Ad-hoc signed so TCC (mic/system-audio/calendar) can attribute

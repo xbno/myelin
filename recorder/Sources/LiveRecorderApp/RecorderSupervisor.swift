@@ -190,21 +190,33 @@ final class RecorderSupervisor: ObservableObject {
     /// scheme intentionally doesn't auto-send). The skill auto-picks the newest
     /// transcript = the active recording.
     func askClaudeAboutCall() {
-        let prompt = "/live-recorder"
-        // Route verified against Claude.app's deep-link handler: cowork/new?q=
-        // maps to /task/new?q= (q capped at 1024 chars, URLSearchParams-decoded,
-        // so raw "/" and %2F are equivalent). Prefill is flaky when the app is
-        // already running (warm path dispatches a navigate event instead of a
-        // fresh load) — the clipboard copy below covers that: the user just ⌘V.
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(prompt, forType: .string)
-        let q = prompt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        // folder= pre-attaches the recordings dir to the new session, so the
-        // skill can pull immediately instead of failing then asking for access.
-        let folder = recordingsDir.path
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        if let url = URL(string: "claude://cowork/new?q=\(q)&folder=\(folder)") {
-            NSWorkspace.shared.open(url)
+        Task { @MainActor in
+            // Lead with the meeting name so Cowork's session title isn't just
+            // "Live recorder" for every call. Use the live recording's name;
+            // otherwise best-effort calendar lookup.
+            var name = isRecording ? meetingName : ""
+            if name.isEmpty {
+                name = await currentMeetingName()
+            }
+            // Lead with the slash command; append the name as its argument so the
+            // Cowork session title reflects the meeting.
+            let prompt = name.isEmpty ? "/live-recorder" : "/live-recorder \(name)"
+            // Route verified against Claude.app's deep-link handler: cowork/new?q=
+            // maps to /task/new?q= (q capped at 1024 chars, URLSearchParams-decoded,
+            // so raw "/" and %2F are equivalent). Prefill is flaky when the app is
+            // already running (warm path dispatches a navigate event instead of a
+            // fresh load) — the clipboard copy below covers that: the user just ⌘V.
+            //
+            // Deliberately NO folder= param: any folder/file arg makes the handler
+            // set src=external, which fires the "Another app attached" dialog — and
+            // clicking Continue re-inits the draft session, wiping the prefilled q.
+            // The skill attaches the recordings folder itself on first pull instead.
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(prompt, forType: .string)
+            let q = prompt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            if let url = URL(string: "claude://cowork/new?q=\(q)") {
+                NSWorkspace.shared.open(url)
+            }
         }
     }
 

@@ -1,6 +1,8 @@
 ---
 name: live-recorder
-description: Stream the transcript of an active local recording (live-recorder) into context incrementally. Each pull returns only what's new since the last pull. Use when the user says "pull the live call", "what's happening in my meeting", wants running notes/research during a call recorded with the local recorder, or asks to start/stop a recording.
+description: Pull live transcripts incrementally into context if recording live
+user-invocable: true
+disable-model-invocation: true
 ---
 
 # live-recorder: incremental pulls from the local call recorder
@@ -23,8 +25,7 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 
 Recordings live on the user's Mac at `~/ml/myelin/recordings`. Inside
 a Cowork VM that folder does **not exist until attached** — so attaching is
-**step 1, before any pull** (skip only if the session already has it, e.g.
-opened via the recorder's ⌥⌘C hotkey, which pre-attaches it). Request access
+**step 1, before any pull** (skip only if the session already has it). Request access
 to `~/ml/myelin` with the folder-access tool; its response prints the
 connected path. From then on always pull with the recordings path pinned:
 
@@ -53,9 +54,12 @@ skill mounts are often noexec, so running the script directly fails with
   `/Users/<user>/…` path). In a Cowork session the recordings folder (or the
   repo containing it) must be **attached to the session** for any of this to
   be visible.
-- Output: header `<file> — segments 5–12 of 12`, then one
-  `**Me (m:ss):** …` / `**Them (m:ss):** …` line per new segment
-  (`**S1/S2 (m:ss):**` once diarization is on — mic is always Me).
+- Output: header `<file> — segments 5–12 of 12`, then `**Me:** …` /
+  `**S1:** …` blocks (mic is always Me; system audio is diarized into
+  S1/S2/… or "Them"). Consecutive segments from the same speaker are
+  collapsed into one block; a ≥3s silence gap starts a new block. Speaker
+  labels are approximate — one label can span multiple real people, so
+  treat block boundaries as hints, not ground truth.
 - `no new segments (still N)` → nothing new; wait (e.g. `sleep 30`) and pull
   again. Polling every 20–60s during a call is plenty.
 - `(output capped — N more segments; run again to continue)` → big backlog is
@@ -72,6 +76,24 @@ Flags: `--list` (recent transcripts), `--file <path>` (pin one),
 `scripts/pull.py --full`. It prints the entire transcript from segment 1
 (ignoring the cursor), then advances the cursor to the end so plain "pull"
 resumes incrementally afterward.
+
+## Invoked with a specific transcript (not live)
+
+If the invocation argument is a path (absolute, or a filename that matches a
+file in the recordings dir) rather than free text, that path is the target
+transcript — e.g. `/live-recorder /Users/…/recordings/acme-2026-07-23T16-10-33Z.jsonl`.
+This is almost always a **finished** call, not the live one, so treat it as a
+one-shot reference read, not a polling loop:
+
+```bash
+python3 <skill-dir>/scripts/pull.py --file <path> --full
+```
+
+`--full` ignores any stale cursor from earlier in this session and guarantees
+the whole transcript. Pull it once, use it as reference material, and don't
+re-pull before every answer — the file isn't growing, so there's nothing new
+to catch. The "Workflow" section below (pull-before-every-answer, rolling
+summary) applies only to the live/no-argument case.
 
 ## Workflow (context-efficient — read this)
 

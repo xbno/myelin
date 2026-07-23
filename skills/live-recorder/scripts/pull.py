@@ -125,13 +125,6 @@ def newest_transcript(directory: Path) -> Path | None:
     return files[-1] if files else None
 
 
-def fmt_time(t0, base):
-    if t0 is None:
-        return "?:??"
-    rel = max(0.0, t0 - base)
-    return f"{int(rel // 60)}:{int(rel % 60):02d}"
-
-
 def label(line: dict) -> str:
     if line.get("source") == "mic":
         return "Me"
@@ -230,24 +223,40 @@ def main() -> int:
         print(f"transcript shrank ({total} < cursor {cursor}) — starting over")
         cursor = 0
 
-    base = next((l.get("t0") for l in lines if l.get("t0") is not None), 0.0) or 0.0
     new = lines[cursor:]
 
     if not new:
         print(f"no new segments (still {total}) — {path.name}")
         return 0
 
+    # Consecutive segments from the same speaker label merge into one block.
+    # Diarization labels are unreliable (one label often spans several real
+    # people), so a silence gap ≥ GAP_BREAK also starts a new block — it's the
+    # strongest turn-change signal we have besides the label itself.
+    GAP_BREAK = 3.0
+
     out, used, consumed = [], 0, 0
+    last_label, last_t1 = None, None
     for line in new:
         text = (line.get("text") or "").strip()
         if not text:
             consumed += 1  # nothing to print; just advance past it
             continue
-        s = f"**{label(line)} ({fmt_time(line.get('t0'), base)}):** {text}"
-        if out and used + len(s) > MAX_CHARS:
+        lab = label(line)
+        t0, t1 = line.get("t0"), line.get("t1")
+        gap = t0 - last_t1 if t0 is not None and last_t1 is not None else None
+        merge = bool(out) and lab == last_label and (gap is None or gap < GAP_BREAK)
+        added = len(text) + 1 if merge else len(f"**{lab}:** {text}") + 1
+        if out and used + added > MAX_CHARS:
             break
-        out.append(s)
-        used += len(s) + 1
+        if merge:
+            out[-1] += " " + text
+        else:
+            out.append(f"**{lab}:** {text}")
+        used += added
+        last_label = lab
+        if t1 is not None:
+            last_t1 = t1
         consumed += 1
 
     print(f"{path.name} — segments {cursor + 1}–{cursor + consumed} of {total}")
