@@ -3,10 +3,10 @@ import EventKit
 import Foundation
 import ServiceManagement
 
-/// Supervises the `recorder` CLI as a child process. Names each meeting from
-/// the current calendar event, spawns `recorder --out <named>.jsonl`, and
-/// tracks state for the menu bar. Stopping sends SIGTERM so the recorder
-/// finalizes its transcript cleanly.
+/// Supervises the `recorder` CLI as a child process. Confirms each meeting's
+/// name via a dialog prefilled from the current calendar event, spawns
+/// `recorder --out <stamp>-<name>.jsonl`, and tracks state for the menu bar.
+/// Stopping sends SIGTERM so the recorder finalizes its transcript cleanly.
 @MainActor
 final class RecorderSupervisor: ObservableObject {
     static let shared = RecorderSupervisor()
@@ -154,15 +154,17 @@ final class RecorderSupervisor: ObservableObject {
             return
         }
         Task {
-            var name = await currentMeetingName()
-            if name.isEmpty {  // no calendar event → ask, so the name is descriptive
-                name = promptForName()
-                if name.isEmpty { return }  // cancelled
+            // Always confirm the name — prefilled from the live calendar event
+            // so Enter accepts it, editable when the event is wrong or missing.
+            guard let name = promptForName(suggestion: await currentMeetingName()) else {
+                return  // cancelled
             }
             let stamp = ISO8601DateFormatter().string(from: Date())
                 .replacingOccurrences(of: ":", with: "-")
-            let base = name.isEmpty ? "meeting" : sanitize(name)
-            let out = recordingsDir.appendingPathComponent("\(base)-\(stamp).jsonl")
+            let base = sanitize(name)
+            // Timestamp first so the recordings dir sorts chronologically.
+            let out = recordingsDir.appendingPathComponent(
+                "\(stamp)-\(base.isEmpty ? "meeting" : base).jsonl")
             try? FileManager.default.createDirectory(
                 at: recordingsDir, withIntermediateDirectories: true)
 
@@ -193,7 +195,7 @@ final class RecorderSupervisor: ObservableObject {
                 try p.run()
                 process = p
                 isRecording = true
-                meetingName = name.isEmpty ? "Untitled meeting" : name
+                meetingName = name
                 transcriptURL = out
                 startLevelAnimation()
                 startStatusTimer()
@@ -277,20 +279,31 @@ final class RecorderSupervisor: ObservableObject {
             .description
     }
 
-    /// Ask for a meeting name when the calendar has nothing (ad-hoc call).
-    /// Returns "" only if the user cancels (start() then aborts).
-    private func promptForName() -> String {
+    /// Confirm/enter the meeting name. Prefilled with `suggestion` (the current
+    /// calendar event, text selected) so Enter accepts it and typing replaces
+    /// it. Returns nil if the user cancels.
+    private func promptForName(suggestion: String) -> String? {
         let alert = NSAlert()
         alert.messageText = "Name this recording"
-        alert.informativeText = "No calendar event found — what's this meeting?"
+        alert.informativeText = suggestion.isEmpty
+            ? "No calendar event found — what's this meeting?"
+            : "From your calendar — Enter to accept, or type over it."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         field.placeholderString = "e.g. Acme discovery"
+        field.stringValue = suggestion
         alert.accessoryView = field
         alert.addButton(withTitle: "Start")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
         alert.window.initialFirstResponder = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return "" }
+        // initialFirstResponder alone loses the focus race while this
+        // background (menu-bar) app is still activating — re-grab focus once
+        // the modal window is actually up (modal run loops drain the main
+        // queue), so the field is typeable without a click.
+        DispatchQueue.main.async {
+            field.window?.makeFirstResponder(field)
+        }
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let entered = field.stringValue.trimmingCharacters(in: .whitespaces)
         return entered.isEmpty ? "Meeting" : entered
     }

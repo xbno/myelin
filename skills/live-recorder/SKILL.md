@@ -95,7 +95,7 @@ resumes incrementally afterward.
 
 If the invocation argument is a path (absolute, or a filename that matches a
 file in the recordings dir) rather than free text, that path is the target
-transcript — e.g. `/live-recorder /Users/…/recordings/acme-2026-07-23T16-10-33Z.jsonl`.
+transcript — e.g. `/live-recorder /Users/…/recordings/2026-07-23T16-10-33Z-acme.jsonl`.
 This is almost always a **finished** call, not the live one, so treat it as a
 one-shot reference read, not a polling loop:
 
