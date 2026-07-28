@@ -2,10 +2,17 @@ import AVFoundation
 import Foundation
 
 /// Microphone capture via AVAudioEngine. Buffers go to the "mic" SpeechChannel.
+///
+/// AVAudioEngine stops itself when the input route/format changes (AirPods
+/// connect or drop, etc.) and never restarts on its own — the same silent-starve
+/// failure mode as the system tap. Restart on the configuration-change
+/// notification with freshly-read formats.
 final class MicCapture {
     private let engine = AVAudioEngine()
     private let channel: SpeechChannel
     private let aec: Bool
+    private var configObserver: (any NSObjectProtocol)?
+    private var stopped = false
 
     init(channel: SpeechChannel, aec: Bool = true) {
         self.channel = channel
@@ -25,6 +32,18 @@ final class MicCapture {
         default:
             break
         }
+        try startEngine()
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
+        ) { [weak self] _ in
+            // Let the route settle — the notification can arrive mid-transition.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self?.restartEngine()
+            }
+        }
+    }
+
+    private func startEngine() throws {
         let input = engine.inputNode
         // Built-in macOS acoustic echo cancellation: the Voice-Processing I/O
         // removes speaker output (the other party) from the mic, so a
@@ -63,7 +82,24 @@ final class MicCapture {
                 + (aec ? ", AEC" : "") + ")")
     }
 
+    private func restartEngine() {
+        guard !stopped else { return }
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        do {
+            try startEngine()
+            Console.status("mic restarted after audio route change")
+        } catch {
+            Console.error("mic restart failed after route change: \(error)")
+        }
+    }
+
     func stop() {
+        stopped = true
+        if let configObserver {
+            NotificationCenter.default.removeObserver(configObserver)
+            self.configObserver = nil
+        }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
     }

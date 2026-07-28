@@ -48,12 +48,25 @@ Cowork sessions place the skill elsewhere. Always invoke via `python3` —
 skill mounts are often noexec, so running the script directly fails with
 "Permission denied".
 
-- Auto-selects the **newest** transcript in the recordings dir:
-  `$LIVE_RECORDER_DIR` if set, else `~/ml/myelin/recordings/`, else the
-  Cowork-session mounts (`~/mnt/**/recordings`, or the folder's original
-  `/Users/<user>/…` path). In a Cowork session the recordings folder (or the
-  repo containing it) must be **attached to the session** for any of this to
-  be visible.
+- Auto-selects the **newest** transcript in the recordings dir on the
+  *first* pull of a session — `$LIVE_RECORDER_DIR` if set, else
+  `~/ml/myelin/recordings/`, else the Cowork-session mounts
+  (`~/mnt/**/recordings`, or the folder's original `/Users/<user>/…` path).
+  In a Cowork session the recordings folder (or the repo containing it) must
+  be **attached to the session** for any of this to be visible.
+- **That file is then pinned for the rest of the session.** Every later
+  plain pull (no `--file`) keeps following the *pinned* file, even if a newer
+  recording shows up in the meantime — so stopping this call and starting a
+  new recording elsewhere does **not** silently redirect a pull mid-conversation
+  onto the new call's transcript. Pulls print `pinned <file> for this session`
+  the first time this happens, so watch for that line to know which
+  transcript you're locked onto.
+- Only switch a session's target transcript on purpose: either run
+  `scripts/pull.py --file <path>` to pin a specific file (used for the
+  ["specific transcript" mode](#invoked-with-a-specific-transcript-not-live)
+  below too), or `scripts/pull.py --unpin` to drop the pin so the next plain
+  pull picks up the newest file again — e.g. when the user explicitly says
+  they've moved on to a different call and want *that* one instead.
 - Output: header `<file> — segments 5–12 of 12`, then `**Me:** …` /
   `**S1:** …` blocks (mic is always Me; system audio is diarized into
   S1/S2/… or "Them"). Consecutive segments from the same speaker are
@@ -68,8 +81,9 @@ skill mounts are often noexec, so running the script directly fails with
 - `transcript shrank … starting over` → file was replaced; re-streams from
   the top.
 
-Flags: `--list` (recent transcripts), `--file <path>` (pin one),
-`--reset` (zero cursor), `--dir`, `--state-dir`.
+Flags: `--list` (recent transcripts), `--file <path>` (pin a specific one),
+`--unpin` (drop the pin, follow newest again), `--reset` (zero cursor),
+`--dir`, `--state-dir`.
 
 **Full transcript / re-read:** when the user says "full transcript", "reread",
 "pull the whole thing", "start over", or "catch me up from the top", run

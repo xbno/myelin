@@ -116,6 +116,22 @@ final class RecorderSupervisor: ObservableObject {
             .appendingPathComponent("ml/myelin/recordings")
     }
 
+    /// Append handle to `<recordings>/.recorder.log`, truncated when it grows
+    /// past 2 MB. Owner-only, like the transcripts.
+    private func openRecorderLog() -> FileHandle? {
+        let url = recordingsDir.appendingPathComponent(".recorder.log")
+        let fm = FileManager.default
+        if let size = try? fm.attributesOfItem(atPath: url.path)[.size] as? Int, size > 2_000_000 {
+            try? fm.removeItem(at: url)
+        }
+        if !fm.fileExists(atPath: url.path) {
+            fm.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        guard let handle = try? FileHandle(forWritingTo: url) else { return nil }
+        _ = try? handle.seekToEnd()
+        return handle
+    }
+
     /// The recorder binary: bundled alongside the app, else ~/.local/bin/recorder.
     private func recorderBinary() -> URL? {
         if let dir = Bundle.main.executableURL?.deletingLastPathComponent() {
@@ -155,8 +171,18 @@ final class RecorderSupervisor: ObservableObject {
             var args = ["--out", out.path]
             if aecEnabled { args.append("--aec") }
             p.arguments = args
+            // Capture the child's stderr (status lines, tap rebuilds, errors) —
+            // otherwise it all goes to /dev/null and a capture stall leaves no
+            // trace to debug with (July 27 acme stall).
+            let log = openRecorderLog()
+            log?.write(Data("\n=== \(stamp) start \(out.lastPathComponent) ===\n".utf8))
+            if let log {
+                p.standardOutput = log
+                p.standardError = log
+            }
             p.terminationHandler = { _ in
                 Task { @MainActor in
+                    try? log?.close()
                     self.isRecording = false
                     self.process = nil
                     self.stopLevelAnimation()

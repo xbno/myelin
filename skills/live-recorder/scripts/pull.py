@@ -78,6 +78,31 @@ def write_state(state_file: Path | None, cursor: int, session: str) -> None:
         print(f"warning: cursor not saved ({e}) — next pull may repeat lines", file=sys.stderr)
 
 
+def read_pin(pin_file: Path | None) -> Path | None:
+    """Which transcript this session last pulled. Without this, an implicit
+    (no --file) pull always follows the *newest* file in the dir — so if the
+    user stops recording call A and starts call B, the very next plain pull
+    silently jumps to B's transcript mid-conversation about A."""
+    if pin_file is None or not pin_file.exists():
+        return None
+    try:
+        p = json.loads(pin_file.read_text()).get("path")
+        return Path(p) if p else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def write_pin(pin_file: Path | None, path: Path) -> None:
+    if pin_file is None:
+        return
+    try:
+        tmp = pin_file.with_name(f"{pin_file.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"path": str(path)}))
+        os.replace(tmp, pin_file)
+    except OSError:
+        pass  # non-fatal — worst case the next pull re-pins
+
+
 def writable_dir(candidates) -> Path | None:
     """First candidate directory we can actually write to (probe write — a
     dir can exist but be unwritable, e.g. /tmp/<dir> owned by another user in
@@ -133,10 +158,21 @@ def label(line: dict) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--file", help="transcript .jsonl (default: newest in default dir)")
+    ap.add_argument(
+        "--file",
+        help="transcript .jsonl (default: this session's pinned file, or the "
+        "newest in --dir if nothing is pinned yet)",
+    )
     ap.add_argument("--dir", default=str(DEFAULT_DIR), help="transcript directory to search")
     ap.add_argument("--list", action="store_true", help="list transcripts and exit")
     ap.add_argument("--reset", action="store_true", help="zero the cursor and exit")
+    ap.add_argument(
+        "--unpin",
+        action="store_true",
+        help="forget this session's pinned transcript and exit; the next plain "
+        "pull auto-selects the newest file again (use after intentionally "
+        "switching to a different call in the same session)",
+    )
     ap.add_argument(
         "--full",
         action="store_true",
@@ -170,7 +206,44 @@ def main() -> int:
             print(f"{mtime}  {n:4d} lines  {p.name}")
         return 0
 
-    path = Path(args.file).expanduser() if args.file else newest_transcript(directory)
+    # An unwritable state dir must not fail the pull (e.g. Cowork's VM: the
+    # mounted skill dir or /tmp can be read-only / other-owned) — fall back.
+    state_dir = writable_dir([
+        args.state_dir,
+        SKILL_DIR / "state",
+        Path.home() / ".cache/live-recorder",
+        Path(tempfile.gettempdir()) / f"live-recorder-{os.getuid()}",
+    ])
+    if state_dir is None:
+        print("warning: no writable state dir — every pull will print from the top", file=sys.stderr)
+    pin_file = state_dir / f"pinned.{session}.json" if state_dir else None
+    pinned = read_pin(pin_file)
+
+    if args.unpin:
+        if pin_file is not None and pin_file.exists():
+            try:
+                pin_file.unlink()
+            except OSError:
+                pass
+        print(f"unpinned (session {session}) — next pull auto-selects the newest transcript")
+        return 0
+
+    if args.file:
+        path = Path(args.file).expanduser()
+        if pinned != path:
+            write_pin(pin_file, path)
+            print(f"pinned {path.name} for this session (--unpin to follow the newest transcript again)")
+    elif pinned is not None and pinned.exists():
+        path = pinned
+    else:
+        path = newest_transcript(directory)
+        if path is not None:
+            if pinned is not None:
+                print(f"previously pinned transcript is gone — re-pinning to {path.name}")
+            else:
+                print(f"pinned {path.name} for this session (--unpin to follow the newest transcript again)")
+            write_pin(pin_file, path)
+
     if path is None or not path.exists():
         print(f"no transcript found (searched {directory}); is the recorder running?")
         print(
@@ -180,17 +253,7 @@ def main() -> int:
         )
         return 1
 
-    # An unwritable state dir must not fail the pull (e.g. Cowork's VM: the
-    # mounted skill dir or /tmp can be read-only / other-owned) — fall back.
-    state_dir = writable_dir([
-        args.state_dir,
-        SKILL_DIR / "state",
-        Path.home() / ".cache/live-recorder",
-        Path(tempfile.gettempdir()) / f"live-recorder-{os.getuid()}",
-    ])
     state_file = state_dir / f"{path.stem}.{session}.json" if state_dir else None
-    if state_dir is None:
-        print("warning: no writable state dir — every pull will print from the top", file=sys.stderr)
 
     cursor = 0
     if state_file is not None and state_file.exists():
