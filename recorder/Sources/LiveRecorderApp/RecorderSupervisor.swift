@@ -18,10 +18,11 @@ final class RecorderSupervisor: ObservableObject {
     /// Live status shown in the menu while recording.
     @Published private(set) var elapsed = "0:00"
     @Published private(set) var lineCount = 0
-    /// Echo cancellation (macOS voice-processing) — ON by default in the app so
-    /// it works speakers-free out of the box (verified to strip ~all system-audio
-    /// echo from the mic). Toggle off in the menu if needed. Effective next Start.
-    @Published var aecEnabled = true
+    /// Echo cancellation (macOS voice-processing) — OFF by default: the usual
+    /// setup is headphones, where AEC only degrades the mic. Toggle on in the
+    /// menu for speakers-free calls (verified to strip ~all system-audio echo
+    /// from the mic). Effective next Start.
+    @Published var aecEnabled = false
     /// Drives the menu-bar waveform animation (0…1 bar height). SymbolEffect
     /// doesn't animate in a MenuBarExtra label, so we cycle this on a timer and
     /// the label re-renders via `variableValue`.
