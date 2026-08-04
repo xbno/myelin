@@ -198,6 +198,15 @@ function collectDiag() {
     tiles: tiles.length,
     tileNames: tiles.map(meetTileName),
     speakingNow: tiles.filter(meetTileSpeaking).map(meetTileName),
+    // Per-selector match counts across tiles — a selector matching ALL tiles
+    // constantly is a stale/over-broad signal, not the speaking indicator.
+    selectorHits: SPEAKING_SELECTORS.map((sel) => {
+      let n = 0;
+      for (const t of tiles) {
+        try { if (t.matches(sel) || t.querySelector(sel)) n++; } catch {}
+      }
+      return [sel, n];
+    }),
     captionRegionFound: !!(document.querySelector('[aria-label="Captions"]') ||
       document.querySelector('[aria-label*="aption"]') || document.querySelector('.a4cQT')),
     topClassToggles: Object.entries(classToggles).sort((a, b) => b[1] - a[1]).slice(0, 12),

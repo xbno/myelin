@@ -49,6 +49,12 @@ final class RecorderSupervisor: ObservableObject {
 
     func toggle() { isRecording ? stop() : start() }
 
+    /// True while the name dialog is up. A second ⌥⌘R during the prompt used
+    /// to stack a second modal session on top of the first — the visible
+    /// dialog's buttons then belonged to the wrong session and nothing could
+    /// be clicked away.
+    private var namePromptUp = false
+
     private func startStatusTimer() {
         recordingStart = Date()
         lastActivity = Date()
@@ -198,12 +204,14 @@ final class RecorderSupervisor: ObservableObject {
     // MARK: - Control
 
     func start() {
-        guard !isRecording else { return }
+        guard !isRecording, !namePromptUp else { return }
         guard let bin = recorderBinary() else {
             notify("Can't find the recorder binary", "Run `make install` or `make app` first.")
             return
         }
         Task {
+            namePromptUp = true
+            defer { namePromptUp = false }
             // Always confirm the name — prefilled from the live calendar event
             // so Enter accepts it, editable when the event is wrong or missing.
             guard let name = promptForName(suggestion: await currentMeetingName()) else {
