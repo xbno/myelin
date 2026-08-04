@@ -119,7 +119,18 @@ running notes`). **Never re-invoke it** during the call — just re-run
 before answering **any** user message — even one that doesn't mention the
 call. The transcript is the shared context of the conversation the user is
 in right now; every answer should reflect what was just said, without the
-user having to ask for a pull.
+user having to ask for a pull. Every pull of a live transcript ends with a
+`[recording is LIVE — …]` reminder line: as long as you see it, keep pulling
+before every answer; it disappears a few minutes after the recording stops.
+(Local Claude Code sessions may also auto-pull via a UserPromptSubmit hook —
+a `[live-recorder auto-pull]` block on the user's message means the delta is
+already in context and you can skip the manual pull for that turn.)
+
+**Repeated "no new segments" during a clearly ongoing call** means the
+recordings folder you're reading is stale — a known failure of *remote*
+(cloud-VM) Cowork sessions, where the attached folder doesn't receive live
+appends. Do NOT quietly stop pulling: say so, and tell the user live mode
+needs a local session (local Cowork or Claude Code on the Mac).
 
 Because pulls happen automatically before every answer, **never tell the
 user to say "pull"** / "anything new?" or otherwise coach them to ask for

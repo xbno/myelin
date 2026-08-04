@@ -13,7 +13,8 @@
 // classes toggle as people talk — paste those to re-lock SPEAKING_SELECTORS.
 
 const ENDPOINT = 'http://127.0.0.1:8737/speaking';
-const DEBUG = false;
+const DIAG_ENDPOINT = 'http://127.0.0.1:8737/diag';
+const DEBUG = true; // dev: stream what this script sees to the recorder's /diag
 const POLL_MS = 400;
 const STALE_MS = 1500; // active-speaker highlight is prompt; caption path lingers
 
@@ -83,9 +84,10 @@ function readMeetActiveSpeaker() {
 
 // DEBUG: discover the speaking-indicator class by watching which class tokens
 // toggle on tiles over time. Whatever toggles as people alternate talking is
-// the signal — add it to SPEAKING_SELECTORS.
+// the signal — add it to SPEAKING_SELECTORS. Module scope so /diag telemetry
+// can report the live ranking.
+const classToggles = {}; // classToken -> times it appeared/disappeared
 function startMeetDiscovery() {
-  const toggles = {}; // classToken -> times it appeared/disappeared
   const prev = new Map(); // tile -> Set(classTokens)
   setInterval(() => {
     for (const tile of meetTiles()) {
@@ -93,11 +95,11 @@ function startMeetDiscovery() {
       tile.querySelectorAll('*').forEach((e) =>
         e.classList && e.classList.forEach((c) => now.add(c)));
       const before = prev.get(tile) || new Set();
-      for (const c of now) if (!before.has(c)) toggles[c] = (toggles[c] || 0) + 1;
-      for (const c of before) if (!now.has(c)) toggles[c] = (toggles[c] || 0) + 1;
+      for (const c of now) if (!before.has(c)) classToggles[c] = (classToggles[c] || 0) + 1;
+      for (const c of before) if (!now.has(c)) classToggles[c] = (classToggles[c] || 0) + 1;
       prev.set(tile, now);
     }
-    const ranked = Object.entries(toggles).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const ranked = Object.entries(classToggles).sort((a, b) => b[1] - a[1]).slice(0, 12);
     console.log('[meet-tap] class tokens toggling on tiles (candidates for speaking):', ranked);
   }, 2000);
 }
@@ -185,8 +187,32 @@ function tick() {
   send([]); // silence
 }
 
+// DEBUG telemetry: every 3s, POST what this script currently sees to the
+// recorder — readable with `curl 127.0.0.1:8737/diag` — so the extension side
+// can be debugged end-to-end without opening DevTools.
+function collectDiag() {
+  const tiles = meetTiles();
+  return {
+    ts: new Date().toISOString(),
+    url: location.pathname,
+    tiles: tiles.length,
+    tileNames: tiles.map(meetTileName),
+    speakingNow: tiles.filter(meetTileSpeaking).map(meetTileName),
+    captionRegionFound: !!(document.querySelector('[aria-label="Captions"]') ||
+      document.querySelector('[aria-label*="aption"]') || document.querySelector('.a4cQT')),
+    topClassToggles: Object.entries(classToggles).sort((a, b) => b[1] - a[1]).slice(0, 12),
+    lastSent,
+  };
+}
+
 if (adapter) {
   setInterval(tick, POLL_MS);
   if (DEBUG && adapter.discover) adapter.discover();
-  if (DEBUG) console.log('[meet-tap] active on', location.href);
+  if (DEBUG) {
+    setInterval(() => {
+      fetch(DIAG_ENDPOINT, { method: 'POST', body: JSON.stringify(collectDiag()), keepalive: true })
+        .catch(() => {});
+    }, 3000);
+    console.log('[meet-tap] active on', location.href);
+  }
 }

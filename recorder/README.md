@@ -35,6 +35,27 @@ transcripts after your current meeting). Click Allow.
 - **⌥⌘C** — ask Claude about the live call: opens Claude Cowork with the
   transcript attached and `/live-recorder` ready to go.
 
+### Cowork must run tasks locally
+
+Cowork tasks can run in two places — on your Mac or in a cloud VM — and the
+app's default can flip to cloud after an update. **The live-recorder skill
+requires local**: a cloud VM only gets a staged snapshot of any connected
+folder, so the growing transcript never updates and every pull flatlines at
+"no new segments". Local sessions read the real file directly — no
+connecting folders, no re-staging per pull — and save the session trace to
+disk (`~/Library/Application Support/Claude/…`); cloud traces stay
+server-side.
+
+- **Permanently:** desktop app → Settings → Cowork → turn **off** "Run new
+  tasks in the cloud".
+- **Per task:** the "Run this task" picker (top right) when starting a task.
+- A session's location is fixed at start — an already-running cloud session
+  can't be moved, but the next ⌥⌘C can be local.
+
+Cloud mode's honest use case is kick-off-and-walk-away work (keeps running
+with the laptop closed, reachable from your phone, hosts scheduled tasks) —
+never live-call support.
+
 ## CLI
 
 For terminals and scripts — `make install` puts `recorder` on your PATH:

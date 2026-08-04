@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import EventKit
 import Foundation
 import ServiceManagement
@@ -38,6 +39,9 @@ final class RecorderSupervisor: ObservableObject {
     /// "forgot to stop after the call" without cutting off a long active meeting
     /// (an inactivity timeout, not a hard cap).
     private let idleAutoStop: TimeInterval = 15 * 60
+    private var axTick = 0
+    private var axProbeRan = false
+    private var axProbePrompted = false
 
     init() {
         launchAtLogin = (SMAppService.mainApp.status == .enabled)
@@ -49,6 +53,8 @@ final class RecorderSupervisor: ObservableObject {
         recordingStart = Date()
         lastActivity = Date()
         lastLineCount = 0
+        axTick = 0
+        axProbeRan = false
         statusTimer?.invalidate()
         statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.updateStatus() }
@@ -77,6 +83,49 @@ final class RecorderSupervisor: ObservableObject {
         } else if let last = lastActivity, Date().timeIntervalSince(last) >= idleAutoStop {
             stop()  // silent for 15 min — the call's over and Stop was forgotten
         }
+        axTick += 1
+        if axTick % 45 == 0 { maybeRunAXProbe() }
+    }
+
+    /// One-time R&D capture for native-Teams speaker naming: while a recording
+    /// is live and the Teams app is running, snapshot its accessibility tree
+    /// (roster + which attributes toggle as people speak) into
+    /// `<recordings>/.ax-probe.log`. At most once per recording. Needs
+    /// Accessibility for THIS app — prompts once per app run to register it in
+    /// System Settings; until granted this is a silent no-op every 45s.
+    private func maybeRunAXProbe() {
+        guard isRecording, !axProbeRan else { return }
+        guard NSWorkspace.shared.runningApplications.contains(where: {
+            $0.bundleIdentifier == "com.microsoft.teams2"
+        }) else { return }
+        guard AXIsProcessTrusted() else {
+            if !axProbePrompted {
+                axProbePrompted = true
+                let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+                _ = AXIsProcessTrustedWithOptions(opts as CFDictionary)
+            }
+            return
+        }
+        guard let bin = recorderBinary() else { return }
+        axProbeRan = true
+        let logURL = recordingsDir.appendingPathComponent(".ax-probe.log")
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: logURL.path) {
+            fm.createFile(atPath: logURL.path, contents: nil,
+                          attributes: [.posixPermissions: 0o600])
+        }
+        guard let handle = try? FileHandle(forWritingTo: logURL) else { return }
+        _ = try? handle.seekToEnd()
+        handle.write(Data("\n=== AX probe \(ISO8601DateFormatter().string(from: Date())) ===\n".utf8))
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c",
+            "'\(bin.path)' --ax-dump --app com.microsoft.teams2; "
+            + "'\(bin.path)' --ax-watch --app com.microsoft.teams2"]
+        p.standardOutput = handle
+        p.standardError = handle
+        p.terminationHandler = { _ in try? handle.close() }
+        try? p.run()
     }
 
     private func startLevelAnimation() {
@@ -297,16 +346,41 @@ final class RecorderSupervisor: ObservableObject {
         alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
         alert.window.initialFirstResponder = field
-        // initialFirstResponder alone loses the focus race while this
-        // background (menu-bar) app is still activating — re-grab focus once
-        // the modal window is actually up (modal run loops drain the main
-        // queue), so the field is typeable without a click.
-        DispatchQueue.main.async {
-            field.window?.makeFirstResponder(field)
-        }
+        // One activate() + makeFirstResponder isn't enough: cooperative
+        // activation ignores a background app's request while the meeting app
+        // is frontmost, so the dialog shows but keystrokes keep going to the
+        // other app until the user clicks. Retry until the window is actually
+        // key (modal run loops drain the main queue, so this fires while
+        // runModal is up).
+        focusWhenModalUp(field)
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let entered = field.stringValue.trimmingCharacters(in: .whitespaces)
         return entered.isEmpty ? "Meeting" : entered
+    }
+
+    /// Pull keyboard focus into `field` once its modal window is up: activate
+    /// the app, make the window key, focus the field with the prefilled text
+    /// selected (Enter accepts, typing replaces). Retries ~2s, stopping the
+    /// moment focus sticks so it can't stomp on the user's typing.
+    private func focusWhenModalUp(_ field: NSTextField, attempt: Int = 0) {
+        if NSApp.isActive, let w = field.window, w.isKeyWindow,
+            field.currentEditor() != nil {
+            return  // focused for real — done
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        if let w = field.window {
+            w.makeKeyAndOrderFront(nil)
+            if field.currentEditor() == nil {
+                w.makeFirstResponder(field)
+                field.selectText(nil)
+            }
+        }
+        guard attempt < 40 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            MainActor.assumeIsolated {
+                self.focusWhenModalUp(field, attempt: attempt + 1)
+            }
+        }
     }
 
     private func notify(_ title: String, _ body: String) {

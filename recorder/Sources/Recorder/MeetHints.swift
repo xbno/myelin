@@ -26,6 +26,11 @@ final class MeetHints {
     /// When set, GET /partials serves the in-flight hypotheses per channel.
     var partials: PartialStore?
 
+    /// Last debug snapshot POSTed by the meet-tap extension (DEBUG mode);
+    /// served at GET /diag so the extension's view of the meeting DOM can be
+    /// inspected live with curl instead of Chrome DevTools.
+    private var lastDiag = Data("{}".utf8)
+
     func start(port: UInt16) throws {
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             throw RecorderError("invalid meet-tap port \(port)")
@@ -66,6 +71,10 @@ final class MeetHints {
         if intervals.count > 20_000 {
             intervals.removeFirst(intervals.count - 20_000)
         }
+        Console.status(
+            "[hints] speaker update → "
+            + (cleaned.isEmpty ? "silence" : cleaned.joined(separator: "+"))
+            + " (\(intervals.count) intervals)")
     }
 
     /// Dominant hinted name over the wall-clock window, or nil when there is
@@ -88,9 +97,19 @@ final class MeetHints {
             }
         }
         let ranked = coverage.sorted { $0.value > $1.value }
-        guard let best = ranked.first, best.value >= 0.4 * span else { return nil }
-        if ranked.count > 1, ranked[1].value > 0.5 * best.value { return nil }  // contested
-        return best.key
+        let result: String?
+        if let best = ranked.first, best.value >= 0.4 * span,
+            !(ranked.count > 1 && ranked[1].value > 0.5 * best.value) {
+            result = best.key
+        } else {
+            result = nil
+        }
+        let cov = ranked.first.map { Int($0.value / span * 100) } ?? 0
+        Console.status(String(
+            format: "[hints] query %.1fs window ending %.1fs ago → %@ (best %@ cov %d%%, %d intervals)",
+            span, now.timeIntervalSince(w1), result ?? "nil",
+            ranked.first?.key ?? "-", cov, snapshot.count))
+        return result
     }
 
     // MARK: - Minimal HTTP handling (localhost only, tiny bodies)
@@ -137,6 +156,24 @@ final class MeetHints {
                 status: "200 OK", body: partials?.json() ?? Data("{}".utf8),
                 contentType: "application/json")
         }
+        if method == "GET", path.hasPrefix("/diag") {
+            lock.lock()
+            let d = lastDiag
+            lock.unlock()
+            return Self.response(status: "200 OK", body: d, contentType: "application/json")
+        }
+        if method == "GET", path.hasPrefix("/hints") {
+            let iso = ISO8601DateFormatter()
+            lock.lock()
+            let tail: [[String: Any]] = intervals.suffix(50).map { iv in
+                ["start": iso.string(from: iv.start),
+                 "end": iv.end.map { iso.string(from: $0) } ?? "open",
+                 "names": iv.names]
+            }
+            lock.unlock()
+            let body = (try? JSONSerialization.data(withJSONObject: tail)) ?? Data("[]".utf8)
+            return Self.response(status: "200 OK", body: body, contentType: "application/json")
+        }
         if method == "GET", path.hasPrefix("/transcript") {
             guard let transcriptPath,
                 let body = FileManager.default.contents(atPath: transcriptPath)
@@ -155,6 +192,16 @@ final class MeetHints {
         }
         let body = request[headerEnd.upperBound...]
         guard body.count >= contentLength else { return nil }
+
+        if path.hasPrefix("/diag") {
+            lock.lock()
+            lastDiag = Data(body)
+            lock.unlock()
+            if let s = String(data: Data(body.prefix(200)), encoding: .utf8) {
+                Console.status("[meet-tap] \(s)")
+            }
+            return Self.response(status: "204 No Content")
+        }
 
         var names: [String] = []
         if let obj = try? JSONSerialization.jsonObject(with: Data(body)) as? [String: Any],

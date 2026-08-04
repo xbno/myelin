@@ -56,6 +56,21 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 # the next run continues where this one stopped.
 MAX_CHARS = 25_000
 
+# Appended to every pull of a still-growing transcript. The workflow rule
+# ("pull before answering") lives in SKILL.md, which ages out of context on
+# long calls — this line rides on every tool result instead, so the newest
+# context always carries the instruction. Silence for ≥ this many seconds
+# means the call is over and the nagging stops.
+LIVE_WINDOW_SECS = 180
+LIVE_FOOTER = (
+    "[recording is LIVE — run this same pull command again before answering "
+    "the user's next message, every message, even ones not about the call]"
+)
+
+
+def is_live(path: Path) -> bool:
+    return (time.time() - safe_mtime(path)) < LIVE_WINDOW_SECS
+
 
 def write_state(state_file: Path | None, cursor: int, session: str) -> None:
     """Atomically persist the cursor: write a temp file then os.replace (an
@@ -290,6 +305,8 @@ def main() -> int:
 
     if not new:
         print(f"no new segments (still {total}) — {path.name}")
+        if is_live(path):
+            print(LIVE_FOOTER)
         return 0
 
     # Consecutive segments from the same speaker label merge into one block.
@@ -328,6 +345,8 @@ def main() -> int:
     remaining = total - (cursor + consumed)
     if remaining:
         print(f"(output capped — {remaining} more segments; run again to continue)")
+    if is_live(path):
+        print(LIVE_FOOTER)
 
     write_state(state_file, cursor + consumed, session)
     return 0
