@@ -76,7 +76,9 @@ draws at 50% opacity and the tooltip and popover say since when.
 
 ### Popover
 
-Opens on click, 340 pt wide, standard vibrancy. Top to bottom:
+Opens on click, 360 pt wide, standard vibrancy. Row columns are name 48 pt,
+bar 142 pt, percent 40 pt, verdict 74 pt with 4 pt gaps, which fits "Session",
+"100%" and "−44 under" without wrapping. Top to bottom:
 
 - Header: the Clawd mark, a chip with provider and plan ("Claude · Sample"),
   "updated 12 s ago" right-aligned, a gear that opens Settings.
@@ -128,8 +130,9 @@ Opened from the gear or the footer. Groups and controls, all persisted:
 - **No active session**: the API returns 0% and a null reset. Sess row shows
   empty blocks, no tick, label at 50% ink. Popover says "no active session".
 - **Stale**: see above. The last good snapshot stays on screen.
-- **Not logged in**: keychain item missing. Glyph shows the mark and the label
-  column only, grayed; popover explains "Open Claude Code and log in".
+- **Not logged in**: keychain item missing or token expired with no snapshot
+  yet. Glyph shows the mark, labels and empty tracks at half opacity, so its
+  shape stays put; tooltip and popover say "Open Claude Code and log in".
 - **Locked** (`locked_reason` present or 100%): the bar is fully red and the
   verdict reads "locked · resets …".
 
@@ -256,7 +259,9 @@ re-render on a timer, all of which `MenuBarExtra` labels handle poorly.
 
 ## Testing
 
-- Unit tests run with `swift test` and cover: five equal blocks Mo–Fr for a
+- Unit tests use Swift Testing, not XCTest, because the Command Line Tools do
+  not ship XCTest; `make test` adds the framework search flags the CLT needs.
+  They cover: five equal blocks Mo–Fr for a
   Fri 5:00 pm reset with 9–17 hours; seven blocks with weekends; partial edge
   blocks for a reset inside working hours; the week tick at Monday 9:00 am
   (0%), Tuesday 2:52 pm (34%), Friday 5:00 pm (100%), and frozen over a
@@ -264,10 +269,13 @@ re-render on a timer, all of which `MenuBarExtra` labels handle poorly.
   edges; verdict band edges; duration and clock formats; provider parsing of
   the fixture (three meters: session 3%, weekly 4%, Fable 3%) and of the
   legacy fallback shape; a null `resets_at` yielding an inactive session.
-- Manual checks before calling it done: glyph in a dark and a light menu bar;
-  no-session, stale and not-logged-in states forced through a debug menu item;
-  popover values against claude.ai → Settings → Usage; launch at login; the
-  zip installs and runs on a second Mac.
+- Manual checks: debug states are forced with `PACE_DEBUG_STATE`
+  (`sample`, `nosession`, `stale`, `loggedout`, `locked`), and the glyph,
+  popover and settings can be rendered offscreen to PNG with
+  `PACE_DEBUG_DUMP`, `PACE_DEBUG_DUMP_POPOVER`, `PACE_DEBUG_DUMP_SETTINGS`,
+  which is how the pixels were checked without screen recording. Still to
+  eyeball by hand: the glyph on a light menu bar, launch at login, and the
+  zip on a second Mac.
 
 ## Distribution
 
