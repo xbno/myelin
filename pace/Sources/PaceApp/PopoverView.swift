@@ -100,15 +100,15 @@ struct PopoverView: View {
 
     private func meterRow(_ r: RowModel, palette: Palette, letters: Bool) -> some View {
         HStack(alignment: .bottom, spacing: 4) {
-            Text(r.label == "Sess" ? "Session" : r.label).lineLimit(1).frame(width: 46, alignment: .leading)
+            Text(r.label == "Sess" ? "Session" : r.label).lineLimit(1).minimumScaleFactor(0.9).frame(width: 48, alignment: .leading)
             BarView(blocks: r.blocks, fills: r.fills, tick: r.tick, unit: r.unit,
                     solid: r.solidColorHex.map { Color(hex: $0) }, palette: palette,
-                    width: 150, height: 9, gap: 2, letters: letters, letterSize: 8.5, unitSize: 7, tickWidth: 1.5,
+                    width: 142, height: 9, gap: 2, letters: letters, letterSize: 8.5, unitSize: 7, tickWidth: 1.5,
                     trackOpacity: 0.22,
                     trackColor: r.style == .model ? r.solidColorHex.map { Color(hex: $0) } : nil,
                     unitEmptyColor: .secondary)
-            Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit().lineLimit(1).frame(width: 42, alignment: .trailing)
-            verdict(r, palette: palette).frame(width: 66, alignment: .leading)
+            Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit().lineLimit(1).frame(width: 40, alignment: .trailing)
+            verdict(r, palette: palette).lineLimit(1).minimumScaleFactor(0.85).frame(width: 74, alignment: .leading)
         }
         .padding(.vertical, 3)
     }
@@ -132,7 +132,7 @@ struct PopoverView: View {
 
     private func caption(_ text: String, legend: Bool, palette: Palette) -> some View {
         HStack(spacing: 4) {
-            Spacer().frame(width: 50)
+            Spacer().frame(width: 52)
             Text(text).font(.system(size: 9)).foregroundColor(.secondary)
             if legend {
                 Text("·").font(.system(size: 9)).foregroundColor(.secondary)
