@@ -107,8 +107,8 @@ struct PopoverView: View {
                     trackOpacity: 0.22,
                     trackColor: r.style == .model ? r.solidColorHex.map { Color(hex: $0) } : nil,
                     unitEmptyColor: .secondary)
-            Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit().frame(width: 30, alignment: .trailing)
-            verdict(r, palette: palette).frame(width: 78, alignment: .leading)
+            Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit().lineLimit(1).frame(width: 42, alignment: .trailing)
+            verdict(r, palette: palette).frame(width: 66, alignment: .leading)
         }
         .padding(.vertical, 3)
     }

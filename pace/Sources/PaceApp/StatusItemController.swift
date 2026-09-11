@@ -94,15 +94,24 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             renderer.scale = 2
             if let img = renderer.nsImage { writePNG(img, to: path, scale: 2) }
         }
-        if let path = env["PACE_DEBUG_DUMP_SETTINGS"], !path.isEmpty, store.snapshot != nil {
-            let view = SettingsView(store: store)
-                .frame(width: 460, height: 620)
-                .background(Color(nsColor: .windowBackgroundColor))
-            let renderer = ImageRenderer(content: view)
-            renderer.scale = 2
-            if let img = renderer.nsImage { writePNG(img, to: path, scale: 2) }
+        if let path = env["PACE_DEBUG_DUMP_SETTINGS"], !path.isEmpty, store.snapshot != nil, !settingsDumped {
+            // A grouped Form is AppKit-backed, which ImageRenderer skips; draw it from an offscreen window instead.
+            settingsDumped = true
+            let hosting = NSHostingView(rootView: SettingsView(store: store))
+            hosting.frame = NSRect(x: 0, y: 0, width: 460, height: 640)
+            let window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 460, height: 640),
+                                  styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentView = hosting
+            window.orderFront(nil)
+            hosting.layoutSubtreeIfNeeded()
+            if let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) {
+                hosting.cacheDisplay(in: hosting.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+            }
+            window.orderOut(nil)
         }
     }
+    private var settingsDumped = false
 
     private func writePNG(_ image: NSImage, to path: String, scale: CGFloat) {
         let pixel = NSSize(width: image.size.width * scale, height: image.size.height * scale)
