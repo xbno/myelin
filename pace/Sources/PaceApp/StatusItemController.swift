@@ -94,6 +94,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             renderer.scale = 2
             if let img = renderer.nsImage { writePNG(img, to: path, scale: 2) }
         }
+        if let path = env["PACE_DEBUG_DUMP_SETTINGS"], !path.isEmpty, store.snapshot != nil {
+            let view = SettingsView(store: store)
+                .frame(width: 460, height: 620)
+                .background(Color(nsColor: .windowBackgroundColor))
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            if let img = renderer.nsImage { writePNG(img, to: path, scale: 2) }
+        }
     }
 
     private func writePNG(_ image: NSImage, to path: String, scale: CGFloat) {
