@@ -1,0 +1,104 @@
+import SwiftUI
+import PaceCore
+
+/// Blocks with rounded corners, clipped multi-color fills, an optional unit label in the
+/// first block, optional day letters above, and a tick at a percent position.
+struct BarView: View {
+    let blocks: [BlockSpec]
+    let fills: [FillRange]
+    let tick: Double?
+    let unit: String?
+    let solid: Color?
+    let palette: Palette
+    var width: CGFloat = 50
+    var height: CGFloat = 6
+    var gap: CGFloat = 1
+    var letters = false
+    var letterSize: CGFloat = 8.5
+    var unitSize: CGFloat = 5
+    var tickWidth: CGFloat = 1.2
+    var trackOpacity: Double = 0.28
+    var trackColor: Color? = nil
+    var unitEmptyColor: Color? = nil
+
+    private var letterBand: CGFloat { letters ? letterSize + 1.5 : 0 }
+
+    private struct BlockGeometry {
+        let x: CGFloat
+        let width: CGFloat
+        let lo: Double
+        let hi: Double
+    }
+
+    private var geometry: [BlockGeometry] {
+        let n = blocks.count
+        guard n > 0 else { return [] }
+        let usable = width - gap * CGFloat(n - 1)
+        var out: [BlockGeometry] = []
+        var x: CGFloat = 0
+        var lo = 0.0
+        for b in blocks {
+            let w = usable * CGFloat(b.share)
+            let hi = lo + b.share * 100
+            out.append(BlockGeometry(x: x, width: w, lo: lo, hi: hi))
+            x += w + gap
+            lo = hi
+        }
+        return out
+    }
+
+    var body: some View {
+        Canvas { context, _ in
+            let top = letterBand
+            let radius = min(1.5, height / 3)
+            let track = (trackColor ?? palette.ink).opacity(trackOpacity)
+            let geo = geometry
+            guard !geo.isEmpty else {
+                context.fill(Path(roundedRect: CGRect(x: 0, y: top, width: width, height: height), cornerRadius: radius), with: .color(track))
+                return
+            }
+            for (i, g) in geo.enumerated() {
+                let rect = CGRect(x: g.x, y: top, width: g.width, height: height)
+                let shape = Path(roundedRect: rect, cornerRadius: radius)
+                context.fill(shape, with: .color(track))
+
+                var inner = context
+                inner.clip(to: shape)
+                var covered = 0.0
+                let span = max(1e-9, g.hi - g.lo)
+                for f in fills {
+                    let a = max(f.from, g.lo)
+                    let b = min(f.to, g.hi)
+                    guard b > a + 1e-9 else { continue }
+                    covered += (b - a) / span
+                    let fx = g.x + g.width * CGFloat((a - g.lo) / span)
+                    let fw = g.width * CGFloat((b - a) / span)
+                    inner.fill(Path(CGRect(x: fx, y: top, width: fw, height: height)),
+                               with: .color(palette.color(for: f.color, solid: solid)))
+                }
+                if i == 0, let unit {
+                    let color = covered >= 0.5 ? Color.white : (unitEmptyColor ?? palette.ink.opacity(0.85))
+                    context.draw(Text(unit).font(.system(size: unitSize, weight: .bold)).foregroundColor(color),
+                                 at: CGPoint(x: g.x + g.width / 2, y: top + height / 2))
+                }
+                if letters, let letter = blocks[i].letter {
+                    context.draw(Text(letter).font(.system(size: letterSize, weight: .semibold)).foregroundColor(palette.ink.opacity(0.7)),
+                                 at: CGPoint(x: g.x + g.width / 2, y: letterSize / 2))
+                }
+            }
+            if let t = tick {
+                let px: CGFloat
+                if let g = geo.first(where: { t >= $0.lo && t <= $0.hi }) {
+                    px = g.x + g.width * CGFloat((t - g.lo) / max(1e-9, g.hi - g.lo))
+                } else {
+                    px = t <= 0 ? 0 : width
+                }
+                var line = Path()
+                line.move(to: CGPoint(x: px, y: top - 2.5))
+                line.addLine(to: CGPoint(x: px, y: top + height + 2.5))
+                context.stroke(line, with: .color(palette.ink), lineWidth: tickWidth)
+            }
+        }
+        .frame(width: width, height: height + letterBand)
+    }
+}
