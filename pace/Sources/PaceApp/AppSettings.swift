@@ -29,7 +29,7 @@ struct AppSettings: Codable, Equatable {
     var modelColors: [String: String] = ["Fable": AppSettings.claudeOrange]
     var schedule = Schedule()
     var weekStart = WeekStartSetting()
-    var pollSeconds = 60
+    var pollSeconds = 120
     var providerEnabled = true
     var launchAtLogin = false
 

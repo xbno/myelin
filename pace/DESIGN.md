@@ -213,9 +213,14 @@ A synthetic response from 2026-09-08 is checked in as a test fixture.
 
 ### Polling
 
-Fetch every N seconds (default 60), on popover open, and on wake from sleep.
-Independently, re-render the glyph every 60 s so the tick moves. Countdowns in
-the popover tick every second while it is open.
+Fetch every N seconds (default 120), on popover open and the Refresh button
+(spaced at least 30 s apart), and on wake from sleep. The endpoint answers
+HTTP 429 to sustained one-a-minute polling, so any failure backs the next
+attempt off: base interval doubled per consecutive failure, capped at 30 min,
+`Retry-After` honored when present. A failure never blanks the screen; the
+last snapshot stays and the glyph dims only once its data is older than 15
+minutes. Independently, re-render the glyph every 60 s so the tick moves.
+Countdowns in the popover tick every second while it is open.
 
 ## Architecture
 

@@ -23,6 +23,10 @@ struct PopoverView: View {
         let models = rows.filter { $0.style == .model }
         VStack(alignment: .leading, spacing: 0) {
             header
+            if store.snapshot != nil, let status = store.statusLine {
+                Text(status).font(.system(size: 10)).foregroundColor(.secondary)
+                    .lineLimit(2).padding(.bottom, 6)
+            }
             GutterGroup("usage") {
                 if let s = session {
                     sectionLine("Session", s, now: now)
@@ -75,9 +79,7 @@ struct PopoverView: View {
     }
 
     private var statusNote: some View {
-        Text(store.isLoggedOut ? "Open Claude Code and log in."
-             : store.isStale ? "Could not reach the usage API yet."
-             : "Loading…")
+        Text(store.statusLine ?? "Loading…")
             .font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 4)
     }
 
@@ -153,7 +155,7 @@ struct PopoverView: View {
     private var footer: some View {
         HStack(spacing: 14) {
             Button("Settings…", action: openSettings).buttonStyle(.plain).foregroundColor(.accentColor)
-            Button("Refresh") { Task { await store.refresh() } }.buttonStyle(.plain).foregroundColor(.secondary)
+            Button("Refresh") { store.refreshManually() }.buttonStyle(.plain).foregroundColor(.secondary)
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }.buttonStyle(.plain).foregroundColor(.secondary)
         }

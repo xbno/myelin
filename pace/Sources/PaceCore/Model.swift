@@ -50,6 +50,7 @@ public struct UsageSnapshot: Equatable {
 public enum ProviderError: Error, Equatable {
     case notLoggedIn
     case tokenExpired
+    case rateLimited(retryAfter: TimeInterval?)   // HTTP 429; keep the last snapshot and back off
     case http(Int)
     case badResponse(String)
     case transport(String)

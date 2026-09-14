@@ -34,6 +34,10 @@ public struct AnthropicProvider: UsageProvider {
         }
         guard let http = response as? HTTPURLResponse else { throw ProviderError.badResponse("no HTTP response") }
         if http.statusCode == 401 { throw ProviderError.tokenExpired }
+        if http.statusCode == 429 {
+            let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init)
+            throw ProviderError.rateLimited(retryAfter: retryAfter)
+        }
         guard http.statusCode == 200 else { throw ProviderError.http(http.statusCode) }
         return try Self.parse(data, fetchedAt: Date(), plan: creds.planLabel)
     }

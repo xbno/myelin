@@ -68,7 +68,10 @@ struct SettingsView: View {
                     Text("60 s").tag(60)
                     Text("2 min").tag(120)
                     Text("5 min").tag(300)
+                    Text("10 min").tag(600)
                 }
+                Text("The usage API rate-limits aggressive polling. On a 429 Pace keeps the last numbers and backs off, doubling up to 30 minutes.")
+                    .font(.caption).foregroundColor(.secondary)
             }
             Section("General") {
                 Toggle("Launch at login", isOn: Binding(

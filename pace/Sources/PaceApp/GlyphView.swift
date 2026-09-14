@@ -65,11 +65,7 @@ enum Tooltip {
             if r.locked { parts.append("locked") } else if let s = r.state { parts.append(Verdict.text(s)) }
             lines.append(parts.joined(separator: " · "))
         }
-        if store.isLoggedOut {
-            lines.append("Open Claude Code and log in")
-        } else if let since = store.staleSince {
-            lines.append("stale since \(Fmt.clock(since, now: store.now, calendar: store.calendar)), open Claude Code to refresh")
-        }
+        if let status = store.statusLine { lines.append(status) }
         return lines.joined(separator: "\n")
     }
 }

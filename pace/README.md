@@ -68,8 +68,14 @@ Claude Code stores an OAuth token in the keychain item `Claude Code-credentials`
 Pace reads it with `/usr/bin/security`, the same tool Claude Code used to write
 it, so no keychain prompt appears. It then calls the private endpoint that
 powers `/usage` in Claude Code and maps the `limits` array to meters. The token
-lives about eight hours and Claude Code refreshes it whenever it runs; if it
-has not run for a while, Pace dims and says "stale since …".
+lives about eight hours and Claude Code refreshes it whenever it runs.
+
+Pace polls every 2 minutes by default, plus when you open the popover, at most
+once every 30 seconds. The endpoint rate-limits aggressive polling with HTTP
+429; on any failure Pace keeps the last good numbers on screen and backs off,
+doubling the wait up to 30 minutes, honoring `Retry-After` when sent. The glyph
+dims only when its data is more than 15 minutes old, and the tooltip then says
+why and when the next try is.
 
 ## Development
 

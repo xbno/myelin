@@ -44,7 +44,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             return
         }
         guard let button = item.button else { return }
-        Task { await store.refresh() }
+        store.refreshManually()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
