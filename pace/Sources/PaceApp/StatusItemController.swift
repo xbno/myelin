@@ -12,6 +12,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let store: UsageStore
     private var cancellables = Set<AnyCancellable>()
     private var appearanceObservation: NSKeyValueObservation?
+    private var blinkTimer: Timer?
+    private var blinkOn = true
     var openSettings: () -> Void = {}
 
     init(store: UsageStore) {
@@ -59,8 +61,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let hours = store.settings.showHoursLeft
             ? rows.first(where: { $0.id == "week" })?.remaining.map(Fmt.hoursOnly)
             : nil
+        updateBlink(hasOverage: rows.contains { $0.fills.contains { $0.color == .over } })
         let view = GlyphView(rows: rows, settings: store.settings, ink: ink, hoursLeft: hours,
-                             dimmed: store.isStale || store.snapshot == nil)
+                             dimmed: store.isStale || store.snapshot == nil, blinkOn: blinkOn)
         let renderer = ImageRenderer(content: view)
         renderer.scale = item.button?.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         guard let image = renderer.nsImage else { return }
@@ -69,6 +72,25 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         item.button?.imagePosition = .imageOnly
         item.button?.toolTip = Tooltip.text(rows: rows, store: store)
         dumpIfRequested(image)
+    }
+
+    /// Starts (or stops) the timer that alternates a red-over-budget bar with yellow, so a session
+    /// or week that's over pace is hard to miss. Idle whenever nothing is over.
+    private func updateBlink(hasOverage: Bool) {
+        guard hasOverage else {
+            blinkTimer?.invalidate()
+            blinkTimer = nil
+            blinkOn = true
+            return
+        }
+        guard blinkTimer == nil else { return }
+        blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.blinkOn.toggle()
+                self.render()
+            }
+        }
     }
 
     /// Debug aids, both off unless the environment asks:

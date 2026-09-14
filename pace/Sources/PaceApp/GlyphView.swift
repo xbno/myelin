@@ -9,6 +9,8 @@ struct GlyphView: View {
     let ink: Color
     let hoursLeft: String?
     let dimmed: Bool
+    /// Off-phase of the over-budget blink; true keeps the red bar red.
+    var blinkOn: Bool = true
 
     private var labelWidth: CGFloat { settings.labelStyle == .words ? 19 : 7 }
 
@@ -27,7 +29,7 @@ struct GlyphView: View {
                             .lineLimit(1)
                             .frame(width: labelWidth, height: 6, alignment: .leading)
                         BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
-                                solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette)
+                                solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn)
                     }
                 }
             }

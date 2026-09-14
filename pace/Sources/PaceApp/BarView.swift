@@ -10,6 +10,8 @@ struct BarView: View {
     let unit: String?
     let solid: Color?
     let palette: Palette
+    /// While false, `.over` (red) fills draw as `.unspent` (yellow) instead — the blink's off-phase.
+    var blinkOn: Bool = true
     var width: CGFloat = 50
     var height: CGFloat = 6
     var gap: CGFloat = 1
@@ -73,8 +75,9 @@ struct BarView: View {
                     covered += (b - a) / span
                     let fx = g.x + g.width * CGFloat((a - g.lo) / span)
                     let fw = g.width * CGFloat((b - a) / span)
+                    let color = (f.color == .over && !blinkOn) ? palette.unspent : palette.color(for: f.color, solid: solid)
                     inner.fill(Path(CGRect(x: fx, y: top, width: fw, height: height)),
-                               with: .color(palette.color(for: f.color, solid: solid)))
+                               with: .color(color))
                 }
                 if i == 0, let unit {
                     let color = covered >= 0.5 ? Color.white : (unitEmptyColor ?? palette.ink.opacity(0.85))
