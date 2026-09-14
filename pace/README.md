@@ -5,6 +5,8 @@ the right speed to hit 100% exactly when the limit resets. Three bars, one per
 limit your account has, each block a unit of time, colored by how far ahead or
 behind pace you are.
 
+![Pace in the menu bar: the mark, then Sess, Week and Fable bars](docs/menu-bar.png)
+
 Design and decisions: [DESIGN.md](DESIGN.md).
 
 ## Install
@@ -27,11 +29,9 @@ xattr -dr com.apple.quarantine Pace.app && mv Pace.app /Applications/
 
 ## Reading the glyph
 
-```
- [mark]  Sess  [1h][  ][  ][  ][  ]      five blocks, one hour each
-         Week  [1d][  ][  ][  ][  ]      one block per working day
-         Fable [  ][  ][  ][  ][  ]      same days, Fable's weekly limit
-```
+Top to bottom: **Sess**, five blocks of one hour each. **Week**, one block per
+working day. **Fable**, the same days for Fable's own weekly limit. The first
+block of a row names its unit.
 
 - The **white tick** is now. On Sess it is the time elapsed in the five-hour
   session. On Week it is how far through your working week you are: it moves
@@ -48,6 +48,7 @@ xattr -dr com.apple.quarantine Pace.app && mv Pace.app /Applications/
 Hovering shows elapsed, remaining and reset time per row. Clicking opens the
 popover with the same bars at a readable size, day letters, percentages and a
 verdict per row: "on pace", "+9 over" or "−9 under".
+
 
 ## Settings
 
