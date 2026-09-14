@@ -213,7 +213,7 @@ A synthetic response from 2026-09-08 is checked in as a test fixture.
 
 ### Polling
 
-Fetch every N seconds (default 120), on popover open and the Refresh button
+Fetch every N seconds (default 180), on popover open and the Refresh button
 (spaced at least 30 s apart), and on wake from sleep. The endpoint answers
 HTTP 429 to sustained one-a-minute polling, so any failure backs the next
 attempt off: base interval doubled per consecutive failure, capped at 30 min,

@@ -70,7 +70,7 @@ it, so no keychain prompt appears. It then calls the private endpoint that
 powers `/usage` in Claude Code and maps the `limits` array to meters. The token
 lives about eight hours and Claude Code refreshes it whenever it runs.
 
-Pace polls every 2 minutes by default, plus when you open the popover, at most
+Pace polls every 3 minutes by default, plus when you open the popover, at most
 once every 30 seconds. The endpoint rate-limits aggressive polling with HTTP
 429; on any failure Pace keeps the last good numbers on screen and backs off,
 doubling the wait up to 30 minutes, honoring `Retry-After` when sent. The glyph
