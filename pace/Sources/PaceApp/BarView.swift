@@ -19,11 +19,29 @@ struct BarView: View {
     var letterSize: CGFloat = 8.5
     var unitSize: CGFloat = 5
     var tickWidth: CGFloat = 1.2
-    var trackOpacity: Double = 0.28
+    var trackOpacity: Double = 0.45
     var trackColor: Color? = nil
     var unitEmptyColor: Color? = nil
+    var hatchSpacing: CGFloat = 2.5
+    var hatchLineWidth: CGFloat = 0.9
 
     private var letterBand: CGFloat { letters ? letterSize + 1.5 : 0 }
+
+    /// Fills a region with 45° diagonal lines instead of a flat tint: the unused ("track")
+    /// part of a block, and the unspent-but-not-yet-due part. Breaking these into dashes
+    /// reads as a dot grid at menu bar size, so they stay solid.
+    private func drawHatch(_ context: GraphicsContext, in shape: Path, rect: CGRect, color: Color) {
+        var clipped = context
+        clipped.clip(to: shape)
+        var lines = Path()
+        var x = -rect.height
+        while x < rect.width {
+            lines.move(to: CGPoint(x: rect.minX + x, y: rect.maxY))
+            lines.addLine(to: CGPoint(x: rect.minX + x + rect.height, y: rect.minY))
+            x += hatchSpacing
+        }
+        clipped.stroke(lines, with: .color(color), lineWidth: hatchLineWidth)
+    }
 
     private struct BlockGeometry {
         let x: CGFloat
@@ -56,13 +74,14 @@ struct BarView: View {
             let track = (trackColor ?? palette.ink).opacity(trackOpacity)
             let geo = geometry
             guard !geo.isEmpty else {
-                context.fill(Path(roundedRect: CGRect(x: 0, y: top, width: width, height: height), cornerRadius: radius), with: .color(track))
+                let rect = CGRect(x: 0, y: top, width: width, height: height)
+                drawHatch(context, in: Path(roundedRect: rect, cornerRadius: radius), rect: rect, color: track)
                 return
             }
             for (i, g) in geo.enumerated() {
                 let rect = CGRect(x: g.x, y: top, width: g.width, height: height)
                 let shape = Path(roundedRect: rect, cornerRadius: radius)
-                context.fill(shape, with: .color(track))
+                drawHatch(context, in: shape, rect: rect, color: track)
 
                 var inner = context
                 inner.clip(to: shape)
@@ -75,9 +94,13 @@ struct BarView: View {
                     covered += (b - a) / span
                     let fx = g.x + g.width * CGFloat((a - g.lo) / span)
                     let fw = g.width * CGFloat((b - a) / span)
-                    let color = (f.color == .over && !blinkOn) ? palette.unspent : palette.color(for: f.color, solid: solid)
-                    inner.fill(Path(CGRect(x: fx, y: top, width: fw, height: height)),
-                               with: .color(color))
+                    let fillRect = CGRect(x: fx, y: top, width: fw, height: height)
+                    if f.color == .unspent {
+                        drawHatch(inner, in: Path(fillRect), rect: fillRect, color: palette.unspent)
+                    } else {
+                        let color = (f.color == .over && !blinkOn) ? palette.unspent : palette.color(for: f.color, solid: solid)
+                        inner.fill(Path(fillRect), with: .color(color))
+                    }
                 }
                 if i == 0, let unit {
                     let color = covered >= 0.5 ? Color.white : (unitEmptyColor ?? palette.ink.opacity(0.85))
