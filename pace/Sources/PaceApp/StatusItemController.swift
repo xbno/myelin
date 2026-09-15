@@ -14,11 +14,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var appearanceObservation: NSKeyValueObservation?
     private var blinkTimer: Timer?
     private var blinkOn = true
+    private var lastIsDark = false
     var openSettings: () -> Void = {}
 
     init(store: UsageStore) {
         self.store = store
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Without an autosave name macOS forgets where the item sits, so every relaunch
+        // re-places it — and a wide neighbour appearing can shove it behind the notch.
+        item.autosaveName = "pace"
         super.init()
         item.button?.target = self
         item.button?.action = #selector(togglePopover)
@@ -32,9 +36,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in DispatchQueue.main.async { self?.render() } }
             .store(in: &cancellables)
+        lastIsDark = isDarkMenuBar
         if let button = item.button {
+            // `effectiveAppearance` KVO fires on every redraw, not just real light/dark changes —
+            // setting `.image` in render() would otherwise retrigger this observer in a tight loop.
             appearanceObservation = button.observe(\.effectiveAppearance) { [weak self] _, _ in
-                Task { @MainActor in self?.render() }
+                Task { @MainActor in
+                    guard let self, self.isDarkMenuBar != self.lastIsDark else { return }
+                    self.lastIsDark = self.isDarkMenuBar
+                    self.render()
+                }
             }
         }
         render()
