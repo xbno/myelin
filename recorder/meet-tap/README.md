@@ -4,9 +4,8 @@ Chrome extension that reports the meeting's **active speaker** to the local
 live-recorder — the same method reference recorder's "Companion" extension uses. It reads
 who's currently talking straight from the meeting page's DOM (no captions
 required) and streams the name to the recorder, which shows real names instead
-of `S1`/`S2` and teaches its voice model so people stay identified afterwards
-(captions off, screen share, and — once a voice is learned — future calls on
-any platform, including desktop apps).
+of `S1`/`S2` for the rest of that call. Nothing is kept afterwards: the recorder
+stores no voice data, so the next call starts anonymous again.
 
 Everything stays on your machine: the extension only talks to
 `http://127.0.0.1:8737`.
@@ -42,6 +41,9 @@ this signal exists; it is deliberately not in the accessibility tree.)
 
 If names stop flowing, set `DEBUG = true` at the top of `content.js`, reload the
 extension, and check the Meet tab's console — it runs the same discovery and
-prints what it sees. Re-lock the selector as above. The voice pipeline keeps
-working regardless; you only lose automatic naming until fixed (enrolled voices
-are unaffected).
+prints what it sees. Re-lock the selector as above. Diarization keeps working regardless; you
+only lose real names and fall back to `S1`/`S2`.
+
+To check whether names are flowing without turning `DEBUG` on, run
+`curl 127.0.0.1:8737/hints` during a call — it lists the last 50 speaker
+intervals the recorder received.

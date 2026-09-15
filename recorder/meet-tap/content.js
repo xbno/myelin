@@ -14,7 +14,9 @@
 
 const ENDPOINT = 'http://127.0.0.1:8737/speaking';
 const DIAG_ENDPOINT = 'http://127.0.0.1:8737/diag';
-const DEBUG = true; // dev: stream what this script sees to the recorder's /diag
+const DEBUG = false; // dev only: class-toggle discovery + /diag telemetry.
+// Leave off for normal calls — discovery walks every element of every tile
+// twice a second and the diag POST carries the full participant list.
 const POLL_MS = 400;
 const STALE_MS = 1500; // active-speaker highlight is prompt; caption path lingers
 
