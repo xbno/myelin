@@ -63,7 +63,7 @@ For terminals and scripts — `make install` puts `recorder` on your PATH:
 ```bash
 recorder                      # record + transcribe until Ctrl-C
 recorder --help               # --out, --locale, --mic-only, --system-only,
-                              # --no-diarize, --aec, --speakers-dir, --diarize-file
+                              # --no-diarize, --aec, --diarize-file
 ```
 
 Transcripts land in `~/ml/myelin/recordings/` (one `.jsonl` per call,

@@ -13,7 +13,6 @@ struct Main {
         var aec = false  // opt-in via --aec: macOS voice-processing echo
         // cancellation. Default off so the proven mic path stays untouched
         // until AEC is confirmed working on a real speakers-on call.
-        var speakersDir: String?
         var diarizeFile: String?
         var meetPort: UInt16 = 8737  // --meet-port 0 disables
         var fast = false
@@ -34,8 +33,6 @@ struct Main {
                 aec = true
             case "--no-diarize":
                 diarize = false
-            case "--speakers-dir":
-                speakersDir = args.isEmpty ? nil : args.removeFirst()
             case "--diarize-file":
                 diarizeFile = args.isEmpty ? nil : args.removeFirst()
             case "--meet-port":
@@ -49,7 +46,7 @@ struct Main {
             case "--help", "-h":
                 print("""
                 usage: recorder [--out FILE.jsonl] [--locale en-US] [--mic-only|--system-only]
-                                [--no-diarize] [--aec] [--speakers-dir DIR] [--meet-port N] [--fast]
+                                [--no-diarize] [--aec] [--meet-port N] [--fast]
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
@@ -57,8 +54,8 @@ struct Main {
                 (override with $LIVE_RECORDER_DIR or --out).
 
                 Speaker labels: remote speakers are diarized locally (FluidAudio LS-EEND)
-                into S1/S2/…. Drop voice samples (e.g. Alice.wav) into
-                <recordings-dir>/speakers/ to get real names.
+                into S1/S2/…, for one call only. Real names come from a live meet-tap
+                hint; no voiceprint is kept between sessions.
                 """)
                 return
             default:
@@ -123,11 +120,7 @@ struct Main {
                 if diarize {
                     let d = SystemDiarizer()
                     do {
-                        // Passed even when the dir doesn't exist yet: hint-named
-                        // voices are saved there at session end.
-                        let enrollDir = speakersDir.map { URL(fileURLWithPath: $0) }
-                            ?? baseDir.appendingPathComponent("speakers")
-                        try await d.start(enrollDir: enrollDir)
+                        try await d.start()
                         diarizer = d
                     } catch {
                         Console.error("diarization unavailable, continuing without: \(error)")
