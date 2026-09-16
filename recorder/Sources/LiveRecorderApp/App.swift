@@ -54,8 +54,14 @@ struct LiveRecorderApp: App {
         } label: {
             // Static gray waveform when idle; red bars jumping (timer-driven
             // variableValue) while recording.
+            //
+            // Monochrome, NOT .palette: palette mode expects one style per
+            // symbol layer, and handing a single style to a multi-layer
+            // variable symbol can render nothing at all. The status item kept
+            // its slot and painted no pixels — the icon disappeared from the
+            // menu bar after a rebuild on Sep 16 with the source unchanged.
             Image(systemName: "waveform", variableValue: supervisor.isRecording ? supervisor.level : 1.0)
-                .symbolRenderingMode(.palette)
+                .symbolRenderingMode(.monochrome)
                 .foregroundStyle(supervisor.isRecording ? Color.red : Color.primary)
         }
     }
