@@ -6,13 +6,17 @@ import Foundation
 /// AVAudioEngine stops itself when the input route/format changes (AirPods
 /// connect or drop, etc.) and never restarts on its own — the same silent-starve
 /// failure mode as the system tap. Restart on the configuration-change
-/// notification with freshly-read formats.
+/// notification, but only when the input format actually changed — the same
+/// notification fires for output-only route changes.
 final class MicCapture {
     private let engine = AVAudioEngine()
     private let channel: SpeechChannel
     private let aec: Bool
     private var configObserver: (any NSObjectProtocol)?
     private var stopped = false
+    /// Format of the tap currently installed, to tell a real input change from
+    /// an output-only one (see `restartEngine`).
+    private var installedFormat: AVAudioFormat?
 
     init(channel: SpeechChannel, aec: Bool = true) {
         self.channel = channel
@@ -61,29 +65,46 @@ final class MicCapture {
         guard nodeFormat.sampleRate > 0 else {
             throw RecorderError("no microphone input available")
         }
-        // Default path: tap the node's own format (proven working). AEC path:
-        // voice-processing makes the node multi-channel and a manual
+        // Default path: pass nil and let AVAudioEngine read the bus format
+        // itself. Handing it a format read a moment earlier races the route
+        // change — installTap then throws an ObjC NSException, which Swift
+        // cannot catch, so it kills the whole recording instead of just the mic.
+        // AEC path: voice-processing makes the node multi-channel and a manual
         // AVAudioConverter (SpeechChannel's) yields SILENCE on those buffers, so
         // install a MONO tap and let AVAudioEngine's own conversion downmix
         // correctly (Apple forums 771530).
-        let tapFormat: AVAudioFormat =
+        let requested: AVAudioFormat? =
             aec
-            ? (AVAudioFormat(
+            ? AVAudioFormat(
                 commonFormat: .pcmFormatFloat32, sampleRate: nodeFormat.sampleRate,
-                channels: 1, interleaved: false) ?? nodeFormat)
-            : nodeFormat
-        input.installTap(onBus: 0, bufferSize: 4096, format: tapFormat) { [channel] buffer, _ in
+                channels: 1, interleaved: false)
+            : nil
+        input.installTap(onBus: 0, bufferSize: 4096, format: requested) { [channel] buffer, _ in
             channel.feed(buffer)
         }
         engine.prepare()
         try engine.start()
+        let live = requested ?? nodeFormat
+        installedFormat = live
         Console.status(
-            "mic capture started (\(Int(tapFormat.sampleRate)) Hz, \(tapFormat.channelCount) ch"
+            "mic capture started (\(Int(live.sampleRate)) Hz, \(live.channelCount) ch"
                 + (aec ? ", AEC" : "") + ")")
     }
 
     private func restartEngine() {
         guard !stopped else { return }
+        // The notification also fires for OUTPUT route changes — headphones,
+        // a monitor's speakers — which leave the microphone untouched. Tearing
+        // the tap down then is pure risk for no gain, and it is what killed the
+        // Sep 16 call: the default output device changed, the mic engine
+        // restarted anyway, and installTap threw mid-transition.
+        let current = engine.inputNode.outputFormat(forBus: 0)
+        if engine.isRunning, let installedFormat,
+            installedFormat.sampleRate == current.sampleRate,
+            installedFormat.channelCount == current.channelCount
+        {
+            return
+        }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         do {
