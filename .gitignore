@@ -1,0 +1,10 @@
+# OS junk
+.DS_Store
+
+# Never commit call transcripts
+recordings/
+*.jsonl
+
+# Swift build products (also ignored per-package)
+.build/
+*.app/
