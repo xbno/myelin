@@ -55,11 +55,14 @@ struct LiveRecorderApp: App {
             // Static gray waveform when idle; red bars jumping (timer-driven
             // variableValue) while recording.
             //
-            // Monochrome, NOT .palette: palette mode expects one style per
-            // symbol layer, and handing a single style to a multi-layer
-            // variable symbol can render nothing at all. The status item kept
-            // its slot and painted no pixels — the icon disappeared from the
-            // menu bar after a rebuild on Sep 16 with the source unchanged.
+            // Monochrome: one colour (red recording / primary idle), so palette
+            // mode added nothing. The Sep 16 "icon vanished after a rebuild"
+            // was NOT a rendering bug: the notched built-in display ran out of
+            // menu bar room and macOS hid the leftmost items — a relaunched
+            // item with no saved position always lands leftmost. Pinning it to
+            // the right fixed it (MenuBarExtra's autosave name is Item-0):
+            //   defaults write com.geoff.live-recorder.app \
+            //     "NSStatusItem Preferred Position Item-0" -float 3000
             Image(systemName: "waveform", variableValue: supervisor.isRecording ? supervisor.level : 1.0)
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(supervisor.isRecording ? Color.red : Color.primary)

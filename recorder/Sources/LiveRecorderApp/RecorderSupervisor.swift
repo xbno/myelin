@@ -209,14 +209,32 @@ final class RecorderSupervisor: ObservableObject {
             notify("Can't find the recorder binary", "Run `make install` or `make app` first.")
             return
         }
+        // Activate now, while still handling the user's hotkey/menu action:
+        // cooperative activation honours this, and the app is then already
+        // frontmost when the name dialog appears after the calendar lookup.
+        NSApp.activate(ignoringOtherApps: true)
         Task {
             namePromptUp = true
             defer { namePromptUp = false }
             // Always confirm the name — prefilled from the live calendar event
             // so Enter accepts it, editable when the event is wrong or missing.
-            guard let name = promptForName(suggestion: await currentMeetingName()) else {
-                return  // cancelled
+            let suggestion = await currentMeetingName()
+            // Run the modal from a run-loop callout, NOT from this Task. A Task
+            // body is a GCD main-queue block, and a modal loop nested inside one
+            // cannot drain the main queue — AppKit's key-window/field-editor
+            // plumbing rides on it, so the dialog showed but the field never
+            // took the cursor, and any queued main-queue work (the old focus
+            // retries) fired in a burst after the modal ended, re-showing the
+            // closed alert as a dead "zombie" dialog. Verified Sep 16 with a
+            // probe app: Task-hosted runModal → no cursor; run-loop-hosted → OK.
+            let name: String? = await withCheckedContinuation { cont in
+                RunLoop.main.perform {
+                    MainActor.assumeIsolated {
+                        cont.resume(returning: self.promptForName(suggestion: suggestion))
+                    }
+                }
             }
+            guard let name else { return }  // cancelled
             let stamp = ISO8601DateFormatter().string(from: Date())
                 .replacingOccurrences(of: ":", with: "-")
             let base = sanitize(name)
@@ -352,43 +370,12 @@ final class RecorderSupervisor: ObservableObject {
         alert.accessoryView = field
         alert.addButton(withTitle: "Start")
         alert.addButton(withTitle: "Cancel")
-        NSApp.activate(ignoringOtherApps: true)
+        // Enough on its own when runModal is hosted by the run loop (see
+        // start()): the field takes the cursor with its text selected.
         alert.window.initialFirstResponder = field
-        // One activate() + makeFirstResponder isn't enough: cooperative
-        // activation ignores a background app's request while the meeting app
-        // is frontmost, so the dialog shows but keystrokes keep going to the
-        // other app until the user clicks. Retry until the window is actually
-        // key (modal run loops drain the main queue, so this fires while
-        // runModal is up).
-        focusWhenModalUp(field)
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let entered = field.stringValue.trimmingCharacters(in: .whitespaces)
         return entered.isEmpty ? "Meeting" : entered
-    }
-
-    /// Pull keyboard focus into `field` once its modal window is up: activate
-    /// the app, make the window key, focus the field with the prefilled text
-    /// selected (Enter accepts, typing replaces). Retries ~2s, stopping the
-    /// moment focus sticks so it can't stomp on the user's typing.
-    private func focusWhenModalUp(_ field: NSTextField, attempt: Int = 0) {
-        if NSApp.isActive, let w = field.window, w.isKeyWindow,
-            field.currentEditor() != nil {
-            return  // focused for real — done
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        if let w = field.window {
-            w.makeKeyAndOrderFront(nil)
-            if field.currentEditor() == nil {
-                w.makeFirstResponder(field)
-                field.selectText(nil)
-            }
-        }
-        guard attempt < 40 else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            MainActor.assumeIsolated {
-                self.focusWhenModalUp(field, attempt: attempt + 1)
-            }
-        }
     }
 
     private func notify(_ title: String, _ body: String) {
