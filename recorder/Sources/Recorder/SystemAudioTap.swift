@@ -11,7 +11,7 @@ import Foundation
 /// the default output route changes (AirPods drop to speakers, sample-rate
 /// switch, auto-switch to phone). After that the stale-format buffer wrap
 /// returns nil on every callback and capture silently starves — a listen-only
-/// call then freezes with no visible error (July 27 acme stall). So the tap
+/// call then freezes with no visible error (the July 27 capture stall). So the tap
 /// self-heals: it watches its own IO health and the default output device and
 /// rebuilds itself when either degrades.
 final class SystemAudioTap {

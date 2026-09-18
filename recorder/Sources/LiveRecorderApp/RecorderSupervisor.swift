@@ -251,7 +251,7 @@ final class RecorderSupervisor: ObservableObject {
             p.arguments = args
             // Capture the child's stderr (status lines, tap rebuilds, errors) —
             // otherwise it all goes to /dev/null and a capture stall leaves no
-            // trace to debug with (July 27 acme stall).
+            // trace to debug with (the July 27 capture stall).
             let log = openRecorderLog()
             log?.write(Data("\n=== \(stamp) start \(out.lastPathComponent) ===\n".utf8))
             if let log {
