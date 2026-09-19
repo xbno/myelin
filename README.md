@@ -16,8 +16,8 @@ and `pace/DESIGN.md` hold the design decisions.
 
 | | macOS | Chip | Also needs |
 |---|---|---|---|
-| recorder | 26+ (SpeechAnalyzer) | Apple Silicon | Xcode Command Line Tools |
-| pace | 14+ | any | Claude Code installed and logged in (Pace reads its keychain token, never writes it) |
+| recorder | 26+ (SpeechAnalyzer) | Apple Silicon | Command Line Tools 26+ (see below) |
+| pace | 14+ | any | Command Line Tools 16+ (see below); Claude Code installed and logged in (Pace reads its keychain token, never writes it) |
 
 ## Install
 
@@ -28,6 +28,27 @@ cd ~/ml/myelin/recorder && ./install.sh     # or: cd ~/ml/myelin/pace && ./insta
 
 Both installers build the app, put it in `/Applications`, and launch it. The
 first recording asks for Microphone, System Audio and Calendar access.
+
+### Command Line Tools
+
+Both packages declare `swift-tools-version: 6.0`, so building needs Swift 6 —
+Command Line Tools 16 or later. Older tools stop with:
+
+```
+error: package 'pace' is using Swift tools version 6.0.0 but the installed version is 5.9.0
+```
+
+Check what you have, then install a version matching your macOS:
+
+```bash
+swift --version                 # want 6.0 or later
+softwareupdate --list           # find "Command Line Tools for Xcode <version>"
+sudo softwareupdate --install "Command Line Tools for Xcode 26.6-26.6"
+```
+
+recorder also needs the macOS 26 SDK for SpeechAnalyzer, so on macOS 26 install
+the 26.x tools rather than an older set. Full Xcode works too, but is not
+required for either app.
 
 ## Notes
 

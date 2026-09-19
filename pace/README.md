@@ -16,7 +16,10 @@ cd pace && ./install.sh          # or: make app-install
 ```
 
 Builds `Pace.app`, installs it to `/Applications`, and launches it. Needs
-macOS 14 or later and the Xcode Command Line Tools. Pace reads the login token
+macOS 14 or later and Command Line Tools 16 or later — the package is
+`swift-tools-version: 6.0`, so Swift 5.x tools stop with a "using Swift tools
+version 6.0.0 but the installed version is 5.9.0" error. Check with `swift
+--version`; the root README has the upgrade command. Pace reads the login token
 that Claude Code keeps in your keychain, so the Mac must have Claude Code
 installed and logged in. Pace never writes or refreshes that token.
 
