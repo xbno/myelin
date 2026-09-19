@@ -13,6 +13,10 @@ struct SettingsView: View {
                     Text("Letters · S, W, F").tag(LabelStyle.letters)
                 }
                 Toggle("Hours left after the bars", isOn: $store.settings.showHoursLeft)
+                Picker("Bar fill", selection: $store.settings.barStyle) {
+                    Text("Hatched · diagonal lines").tag(BarStyle.hatched)
+                    Text("Solid · flat tint").tag(BarStyle.solid)
+                }
                 Picker("Model rows", selection: $store.settings.modelRows.mode) {
                     Text("All models the account reports").tag(ModelRowsSetting.Mode.all)
                     Text("Most constrained only").tag(ModelRowsSetting.Mode.mostConstrained)

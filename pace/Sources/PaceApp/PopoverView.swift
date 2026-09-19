@@ -108,7 +108,8 @@ struct PopoverView: View {
                     width: 142, height: 9, gap: 2, letters: letters, letterSize: 8.5, unitSize: 7, tickWidth: 1.5,
                     trackOpacity: 0.22,
                     trackColor: r.style == .model ? r.solidColorHex.map { Color(hex: $0) } : nil,
-                    unitEmptyColor: .secondary)
+                    unitEmptyColor: .secondary,
+                    hatched: store.settings.barStyle == .hatched)
             Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit().lineLimit(1).frame(width: 40, alignment: .trailing)
             verdict(r, palette: palette).lineLimit(1).minimumScaleFactor(0.85).frame(width: 74, alignment: .leading)
         }

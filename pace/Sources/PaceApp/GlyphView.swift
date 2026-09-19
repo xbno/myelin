@@ -29,7 +29,8 @@ struct GlyphView: View {
                             .lineLimit(1)
                             .frame(width: labelWidth, height: 6, alignment: .leading)
                         BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
-                                solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn)
+                                solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
+                                hatched: settings.barStyle == .hatched)
                     }
                 }
             }

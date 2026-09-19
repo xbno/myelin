@@ -58,7 +58,10 @@ verdict per row: "on pace", "+9 over" or "−9 under".
 The gear in the popover opens them. Everything is stored in UserDefaults.
 
 - **Menu bar**: the mark on or off, word or letter labels, hours-left text after
-  the bars, which model rows to show.
+  the bars, which model rows to show, and whether the track and the unspent span
+  are hatched with diagonal lines or filled flat ("Bar fill"). Hatching separates
+  them from the solid used/over spans over a busy wallpaper; flat reads cleaner
+  over a plain one.
 - **Colors**: used, unspent, over, and one per model.
 - **Pace model**: week start from the account's reset or a custom weekday and
   time, working days with an "include weekends" box, working hours, and the

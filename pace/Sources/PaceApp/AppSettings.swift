@@ -3,6 +3,10 @@ import PaceCore
 
 enum LabelStyle: String, Codable, CaseIterable { case words, letters }
 
+/// How the track and the unspent span are painted. Diagonal hatching keeps them
+/// legible over a busy wallpaper; flat reads better against a plain one.
+enum BarStyle: String, Codable, CaseIterable { case hatched, solid }
+
 struct ModelRowsSetting: Codable, Equatable {
     enum Mode: String, Codable, CaseIterable { case all, mostConstrained, fixed }
     var mode: Mode = .all
@@ -27,6 +31,7 @@ struct AppSettings: Codable, Equatable {
     var unspentColor = "#FAB219"
     var overColor = "#D03B3B"
     var modelColors: [String: String] = ["Fable": AppSettings.claudeOrange]
+    var barStyle: BarStyle = .hatched
     var schedule = Schedule()
     var weekStart = WeekStartSetting()
     var pollSeconds = 180
@@ -50,4 +55,29 @@ struct AppSettings: Codable, Equatable {
 
     /// Fable defaults to Claude orange; any other model starts neutral until the user picks a color.
     func modelColor(_ name: String) -> String { modelColors[name] ?? "#898781" }
+}
+
+/// Decoded key by key, each one falling back to its default. The synthesized decoder
+/// throws on a key that is missing, which would send `load` to its catch-all and reset
+/// every setting the moment a new one is added. In an extension so the memberwise init survives.
+extension AppSettings {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        self.init()
+        showMark = try c.decodeIfPresent(Bool.self, forKey: .showMark) ?? d.showMark
+        labelStyle = try c.decodeIfPresent(LabelStyle.self, forKey: .labelStyle) ?? d.labelStyle
+        showHoursLeft = try c.decodeIfPresent(Bool.self, forKey: .showHoursLeft) ?? d.showHoursLeft
+        modelRows = try c.decodeIfPresent(ModelRowsSetting.self, forKey: .modelRows) ?? d.modelRows
+        usedColor = try c.decodeIfPresent(String.self, forKey: .usedColor) ?? d.usedColor
+        unspentColor = try c.decodeIfPresent(String.self, forKey: .unspentColor) ?? d.unspentColor
+        overColor = try c.decodeIfPresent(String.self, forKey: .overColor) ?? d.overColor
+        modelColors = try c.decodeIfPresent([String: String].self, forKey: .modelColors) ?? d.modelColors
+        barStyle = try c.decodeIfPresent(BarStyle.self, forKey: .barStyle) ?? d.barStyle
+        schedule = try c.decodeIfPresent(Schedule.self, forKey: .schedule) ?? d.schedule
+        weekStart = try c.decodeIfPresent(WeekStartSetting.self, forKey: .weekStart) ?? d.weekStart
+        pollSeconds = try c.decodeIfPresent(Int.self, forKey: .pollSeconds) ?? d.pollSeconds
+        providerEnabled = try c.decodeIfPresent(Bool.self, forKey: .providerEnabled) ?? d.providerEnabled
+        launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
+    }
 }
