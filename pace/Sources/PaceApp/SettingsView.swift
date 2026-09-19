@@ -66,7 +66,15 @@ struct SettingsView: View {
             }
             Section("Providers") {
                 Toggle("Anthropic, via Claude Code login", isOn: $store.settings.providerEnabled)
-                LabeledContent("Status", value: providerStatus)
+                if store.settings.providerEnabled {
+                    LabeledContent("Status", value: status("anthropic"))
+                }
+                Toggle("Codex, via Codex CLI login", isOn: $store.settings.codexEnabled)
+                if store.settings.codexEnabled {
+                    LabeledContent("Status", value: status("codex"))
+                    Text("Read by running the Codex CLI's app-server, so it uses the login you already have. Needs the `codex` command installed.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
                 Picker("Poll every", selection: $store.settings.pollSeconds) {
                     Text("30 s").tag(30)
                     Text("60 s").tag(60)
@@ -88,16 +96,20 @@ struct SettingsView: View {
         .frame(width: 460)
     }
 
+    /// Every model name any enabled provider reports, plus any already given a color.
     private var modelNames: [String] {
-        let fromData = store.snapshot?.models.compactMap(\.modelName) ?? []
+        let fromData = store.activeFeeds.flatMap { $0.snapshot?.models.compactMap(\.modelName) ?? [] }
         return Array(Set(fromData + Array(store.settings.modelColors.keys))).sorted()
     }
 
-    private var providerStatus: String {
-        if store.isLoggedOut { return "not logged in, open Claude Code" }
-        if let since = store.staleSince { return "stale since \(Fmt.clock(since, now: store.now, calendar: store.calendar))" }
-        if store.snapshot != nil { return "token fresh" }
-        return "waiting"
+    private func status(_ providerID: String) -> String {
+        guard let feed = store.feed(providerID) else { return "not registered" }
+        if let trouble = store.status(for: feed) { return trouble }
+        guard let snapshot = feed.snapshot else { return "waiting" }
+        if store.now.timeIntervalSince(snapshot.fetchedAt) > UsageStore.staleAfter {
+            return "stale since \(Fmt.clock(snapshot.fetchedAt, now: store.now, calendar: store.calendar))"
+        }
+        return snapshot.plan.map { "ok · \($0)" } ?? "ok"
     }
 
     private func hour(_ h: Int) -> String {

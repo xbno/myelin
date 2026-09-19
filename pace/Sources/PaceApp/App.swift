@@ -18,8 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: SettingsWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let provider: UsageProvider = DebugProvider.fromEnvironment() ?? AnthropicProvider()
-        store = UsageStore(provider: provider)
+        // The debug provider stands in for the whole set when it is switched on.
+        let providers: [UsageProvider] = DebugProvider.fromEnvironment().map { [$0] }
+            ?? [AnthropicProvider(), CodexProvider()]
+        store = UsageStore(providers: providers)
         settingsWindow = SettingsWindowController(store: store)
         statusItem = StatusItemController(store: store)
         statusItem.openSettings = { [weak self] in self?.settingsWindow.show() }

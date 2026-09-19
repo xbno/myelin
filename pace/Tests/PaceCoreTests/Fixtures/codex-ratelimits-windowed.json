@@ -1,0 +1,27 @@
+{
+  "ordinaryUsageAllowed": true,
+  "rateLimits": {
+    "limitId": "codex",
+    "primary": {"usedPercent": 40, "windowDurationMins": 10080, "resetsAt": 1790026172},
+    "secondary": null,
+    "credits": {"hasCredits": false, "unlimited": false, "balance": "0"},
+    "individualLimit": null,
+    "spendControlReached": false,
+    "planType": "pro",
+    "rateLimitReachedType": null
+  },
+  "rateLimitsByLimitId": {
+    "codex": {
+      "limitId": "codex",
+      "primary": {"usedPercent": 40, "windowDurationMins": 10080, "resetsAt": 1790026172},
+      "secondary": null,
+      "planType": "pro"
+    },
+    "example_reserve": {
+      "limitId": "example_reserve",
+      "limitName": "example-reserve",
+      "primary": {"usedPercent": 10, "windowDurationMins": 10080, "resetsAt": 1790026172}
+    }
+  },
+  "accountId": "00000000-0000-0000-0000-000000000000"
+}

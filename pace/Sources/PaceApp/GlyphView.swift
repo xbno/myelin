@@ -12,25 +12,41 @@ struct GlyphView: View {
     /// Off-phase of the over-budget blink; true keeps the red bar red.
     var blinkOn: Bool = true
 
-    private var labelWidth: CGFloat { settings.labelStyle == .words ? 19 : 7 }
+    private var labelWidth: CGFloat { settings.labelStyle == .words ? 22 : 7 }
+
+    /// Rows grouped by provider, in the order they arrive. Two providers stacked would be
+    /// five rows tall — more than the menu bar gives us — so they sit side by side instead,
+    /// which costs width the bar has and keeps each column at its original height.
+    private var columns: [(id: String, rows: [RowModel])] {
+        var order: [String] = []
+        var grouped: [String: [RowModel]] = [:]
+        for row in rows {
+            if grouped[row.providerID] == nil { order.append(row.providerID) }
+            grouped[row.providerID, default: []].append(row)
+        }
+        return order.map { (id: $0, rows: grouped[$0] ?? []) }
+    }
 
     var body: some View {
         let palette = Palette(settings: settings, ink: ink)
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             if settings.showMark {
                 ClawdMark(color: Color(hex: AppSettings.claudeOrange))
             }
-            VStack(alignment: .leading, spacing: 1) {
-                ForEach(rows) { row in
-                    HStack(spacing: 2) {
-                        Text(settings.labelStyle == .words ? row.label : row.shortLabel)
-                            .font(.system(size: 6, weight: .semibold))
-                            .foregroundColor(ink.opacity(row.active ? 0.8 : 0.4))
-                            .lineLimit(1)
-                            .frame(width: labelWidth, height: 6, alignment: .leading)
-                        BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
-                                solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
-                                hatched: settings.barStyle == .hatched)
+            ForEach(columns, id: \.id) { column in
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(column.rows) { row in
+                        HStack(spacing: 2) {
+                            Text(settings.labelStyle == .words ? row.label : row.shortLabel)
+                                .font(.system(size: 6, weight: .semibold))
+                                .foregroundColor(ink.opacity(row.active ? 0.8 : 0.4))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .frame(width: labelWidth, height: 6, alignment: .leading)
+                            BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
+                                    solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
+                                    hatched: settings.barStyle == .hatched)
+                        }
                     }
                 }
             }
@@ -50,8 +66,15 @@ struct GlyphView: View {
 enum Tooltip {
     @MainActor static func text(rows: [RowModel], store: UsageStore) -> String {
         var lines: [String] = []
+        let manyProviders = Set(rows.map(\.providerID)).count > 1
         for r in rows {
-            var parts = [r.label == "Sess" ? "Session" : r.label]
+            let name: String
+            switch r.style {
+            case .session: name = "Session"
+            case .week: name = "Week"
+            case .model: name = r.label
+            }
+            var parts = [manyProviders ? "\(r.providerName) \(name)" : name]
             if r.style == .session, !r.active {
                 parts.append("no active session")
             }

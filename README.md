@@ -6,7 +6,7 @@ goes with one of them. Everything here runs locally.
 | Where | What |
 |-------|------|
 | [`recorder/`](recorder/) | **live-recorder** — on-device meeting transcription (menu bar app + CLI). Writes an append-only JSONL transcript as people speak, so anything can read the call *while it is still happening*. `cd recorder && ./install.sh` |
-| [`pace/`](pace/) | **Pace** — a menu bar glyph showing whether you are burning your Claude usage budget fast enough to hit 100% exactly when the limit resets. `cd pace && ./install.sh` |
+| [`pace/`](pace/) | **Pace** — a menu bar glyph showing whether you are burning your Claude and Codex usage budgets fast enough to hit 100% exactly when each limit resets. `cd pace && ./install.sh` |
 | [`skills/live-recorder/`](skills/live-recorder/) | Claude skill that streams the active recording into a Claude session, pulling only the new lines each time. |
 
 Each folder has its own README with the details; `recorder/PRODUCTIZATION.md`
@@ -17,7 +17,7 @@ and `pace/DESIGN.md` hold the design decisions.
 | | macOS | Chip | Also needs |
 |---|---|---|---|
 | recorder | 26+ (SpeechAnalyzer) | Apple Silicon | Command Line Tools 26+ (see below) |
-| pace | 14+ | any | Command Line Tools 16+ (see below); Claude Code installed and logged in (Pace reads its keychain token, never writes it) |
+| pace | 14+ | any | Command Line Tools 16+ (see below); Claude Code installed and logged in (Pace reads its keychain token, never writes it). The Codex provider is optional and needs the `codex` CLI logged in. |
 
 ## Install
 

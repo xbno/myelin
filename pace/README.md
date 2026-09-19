@@ -66,16 +66,47 @@ The gear in the popover opens them. Everything is stored in UserDefaults.
 - **Pace model**: week start from the account's reset or a custom weekday and
   time, working days with an "include weekends" box, working hours, and the
   on-pace band that decides when the verdict says "on pace".
-- **Providers**: Anthropic on or off, status, poll interval.
+- **Providers**: Anthropic and Codex, each on or off with its own status
+  line, and the poll interval they share.
 - **General**: launch at login.
 
 ## Where the numbers come from
+
+Two accounts can be shown at once. Each provider is polled, backed off and
+judged independently, and each gets its own week bar anchored on its own reset,
+so two accounts whose weeks end on different days both read correctly. In the
+menu bar the providers sit side by side, one column each, because stacking them
+would be taller than the menu bar allows.
+
+### Anthropic
 
 Claude Code stores an OAuth token in the keychain item `Claude Code-credentials`.
 Pace reads it with `/usr/bin/security`, the same tool Claude Code used to write
 it, so no keychain prompt appears. It then calls the private endpoint that
 powers `/usage` in Claude Code and maps the `limits` array to meters. The token
 lives about eight hours and Claude Code refreshes it whenever it runs.
+
+### Codex
+
+Codex is read by running the Codex CLI's app-server — `codex app-server`, the
+JSON-RPC service the Codex UI itself talks to — and calling
+`account/rateLimits/read`. It answers in about a second, which is nothing
+against a poll measured in minutes.
+
+Going through the CLI rather than calling chatgpt.com directly is deliberate:
+the backend sits behind a bot check that answers a plain HTTPS request with an
+HTML 403, and the CLI already owns the OAuth tokens and their refresh. Pace
+never writes to `~/.codex/auth.json`; it only checks that a login exists.
+
+The reply carries a `primary` and a `secondary` window, each with a used
+percent, a duration and a reset. Pace sorts them by duration — anything up to a
+day is the session meter, longer is the week — so a plan that reports only a
+weekly window simply gets no session row. Any further limit bucket, such as a
+reserve pool, becomes a model row. `codex` is found at `~/.local/bin`,
+Homebrew, `/usr/local/bin` and the usual npm and bun paths; `$CODEX_BIN`
+overrides the search.
+
+### Polling
 
 Pace polls every 3 minutes by default, plus when you open the popover, at most
 once every 30 seconds. The endpoint rate-limits aggressive polling with HTTP

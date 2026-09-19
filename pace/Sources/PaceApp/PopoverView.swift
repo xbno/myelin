@@ -1,7 +1,9 @@
 import SwiftUI
 import PaceCore
 
-/// What opens on click: USAGE (Session, Week) and MODELS groups with vertical words in the gutter.
+/// What opens on click: USAGE (each provider's Session and Week) and MODELS groups with
+/// vertical words in the gutter. With one provider on, it reads exactly as it always did;
+/// with two, each block of rows is headed by the account it belongs to.
 struct PopoverView: View {
     @ObservedObject var store: UsageStore
     let openSettings: () -> Void
@@ -16,29 +18,27 @@ struct PopoverView: View {
 
     @ViewBuilder
     private func content(now: Date) -> some View {
-        let rows = RowBuilder.rows(store: store)
         let palette = Palette(settings: store.settings, ink: .primary)
-        let session = rows.first { $0.id == "session" }
-        let week = rows.first { $0.id == "week" }
-        let models = rows.filter { $0.style == .model }
+        let feeds = store.activeFeeds
+        let perFeed = feeds.map { (feed: $0, rows: RowBuilder.rows(for: $0, store: store)) }
+        let modelGroups = perFeed
+            .map { (feed: $0.feed, rows: $0.rows.filter { $0.style == .model }) }
+            .filter { !$0.rows.isEmpty }
+        let many = feeds.count > 1
         VStack(alignment: .leading, spacing: 0) {
             header
-            if store.snapshot != nil, let status = store.statusLine {
+            if store.hasData, let status = store.statusLine {
                 Text(status).font(.system(size: 10)).foregroundColor(.secondary)
-                    .lineLimit(2).padding(.bottom, 6)
+                    .lineLimit(3).padding(.bottom, 6)
             }
             GutterGroup("usage") {
-                if let s = session {
-                    sectionLine("Session", s, now: now)
-                    meterRow(s, palette: palette, letters: false)
-                    caption("one hour per block", legend: true, palette: palette)
+                if feeds.isEmpty {
+                    Text("no providers switched on — see Settings")
+                        .font(.system(size: 11)).foregroundColor(.secondary)
                 }
-                if let w = week {
-                    sectionLine("Week", w, now: now).padding(.top, 6)
-                    meterRow(w, palette: palette, letters: true)
-                    caption("one working day per block · tick = now, \(Fmt.clock(now, now: now, calendar: store.calendar))", legend: false, palette: palette)
+                ForEach(perFeed, id: \.feed.id) { entry in
+                    usageSection(entry.feed, rows: entry.rows, now: now, palette: palette, named: many)
                 }
-                if store.snapshot == nil { statusNote }
             }
             Divider().padding(.vertical, 6)
             GutterGroup("models") {
@@ -46,10 +46,18 @@ struct PopoverView: View {
                     Text("WEEKLY").font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
                     Text("resets with Week").font(.system(size: 11)).foregroundColor(.secondary)
                 }
-                if models.isEmpty {
+                if modelGroups.isEmpty {
                     Text("no per-model limits on this plan").font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 2)
                 }
-                ForEach(models) { m in meterRow(m, palette: palette, letters: true) }
+                // Grouped by account, like usage above, so each row keeps its own short name.
+                ForEach(modelGroups, id: \.feed.id) { entry in
+                    if many {
+                        Text(entry.feed.displayName.uppercased())
+                            .font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                    ForEach(entry.rows) { m in meterRow(m, palette: palette, letters: true) }
+                }
             }
             footer
         }
@@ -59,15 +67,53 @@ struct PopoverView: View {
         .font(.system(size: 12))
     }
 
+    /// One provider's Session and Week, headed by its name once a second provider is on.
+    @ViewBuilder
+    private func usageSection(_ feed: ProviderFeed, rows: [RowModel], now: Date,
+                              palette: Palette, named: Bool) -> some View {
+        let session = rows.first { $0.style == .session }
+        let week = rows.first { $0.style == .week }
+        VStack(alignment: .leading, spacing: 0) {
+            if named {
+                HStack(spacing: 5) {
+                    Text(feed.displayName.uppercased())
+                        .font(.system(size: 10, weight: .bold)).kerning(0.6)
+                    if let plan = feed.snapshot?.plan {
+                        Text(plan).font(.system(size: 10))
+                    }
+                }
+                .foregroundColor(.secondary)
+                .padding(.top, 4)
+            }
+            if let s = session {
+                sectionLine("Session", s, now: now)
+                meterRow(s, palette: palette, letters: false)
+                caption("one hour per block", legend: true, palette: palette)
+            }
+            if let w = week {
+                sectionLine("Week", w, now: now).padding(.top, session == nil ? 0 : 6)
+                meterRow(w, palette: palette, letters: true)
+                caption("one working day per block · tick = now, \(Fmt.clock(now, now: now, calendar: store.calendar))",
+                        legend: false, palette: palette)
+            }
+            if feed.snapshot == nil { statusNote(feed) }
+        }
+    }
+
     private var header: some View {
-        HStack(spacing: 6) {
+        let feeds = store.activeFeeds
+        let newest = feeds.compactMap { $0.snapshot?.fetchedAt }.max()
+        let title = feeds.count == 1
+            ? feeds[0].displayName + (feeds[0].snapshot?.plan.map { " · \($0)" } ?? "")
+            : "Pace"
+        return HStack(spacing: 6) {
             ClawdMark(color: Color(hex: AppSettings.claudeOrange), unit: 1.1)
-            Text(store.provider.displayName + (store.snapshot?.plan.map { " · \($0)" } ?? ""))
+            Text(title)
                 .font(.system(size: 11, weight: .semibold))
                 .padding(.horizontal, 6).padding(.vertical, 2)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.15)))
             Spacer()
-            Text(store.snapshot.map { "updated \(Fmt.ago(store.now.timeIntervalSince($0.fetchedAt)))" } ?? "no data yet")
+            Text(newest.map { "updated \(Fmt.ago(store.now.timeIntervalSince($0)))" } ?? "no data yet")
                 .font(.system(size: 10)).foregroundColor(.secondary)
             Button(action: openSettings) {
                 Image(systemName: "gearshape").font(.system(size: 11))
@@ -78,8 +124,8 @@ struct PopoverView: View {
         .padding(.bottom, 8)
     }
 
-    private var statusNote: some View {
-        Text(store.statusLine ?? "Loading…")
+    private func statusNote(_ feed: ProviderFeed) -> some View {
+        Text(store.status(for: feed) ?? "Loading…")
             .font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 4)
     }
 
@@ -100,12 +146,19 @@ struct PopoverView: View {
         .padding(.bottom, 2)
     }
 
+    /// Rows sit under a heading that names the account, so the label is just the window.
     private func meterRow(_ r: RowModel, palette: Palette, letters: Bool) -> some View {
-        HStack(alignment: .bottom, spacing: 4) {
-            Text(r.label == "Sess" ? "Session" : r.label).lineLimit(1).minimumScaleFactor(0.9).frame(width: 48, alignment: .leading)
+        let label: String
+        switch r.style {
+        case .session: label = "Session"
+        case .week: label = "Week"
+        case .model: label = r.label
+        }
+        return HStack(alignment: .bottom, spacing: 4) {
+            Text(label).lineLimit(1).minimumScaleFactor(0.75).frame(width: 60, alignment: .leading)
             BarView(blocks: r.blocks, fills: r.fills, tick: r.tick, unit: r.unit,
                     solid: r.solidColorHex.map { Color(hex: $0) }, palette: palette,
-                    width: 142, height: 9, gap: 2, letters: letters, letterSize: 8.5, unitSize: 7, tickWidth: 1.5,
+                    width: 130, height: 9, gap: 2, letters: letters, letterSize: 8.5, unitSize: 7, tickWidth: 1.5,
                     trackOpacity: 0.22,
                     trackColor: r.style == .model ? r.solidColorHex.map { Color(hex: $0) } : nil,
                     unitEmptyColor: .secondary,
@@ -135,7 +188,7 @@ struct PopoverView: View {
 
     private func caption(_ text: String, legend: Bool, palette: Palette) -> some View {
         HStack(spacing: 4) {
-            Spacer().frame(width: 52)
+            Spacer().frame(width: 64)
             Text(text).font(.system(size: 9)).foregroundColor(.secondary)
             if legend {
                 Text("·").font(.system(size: 9)).foregroundColor(.secondary)

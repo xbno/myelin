@@ -70,11 +70,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let rows = RowBuilder.rows(store: store)
         let ink: Color = isDarkMenuBar ? .white : .black
         let hours = store.settings.showHoursLeft
-            ? rows.first(where: { $0.id == "week" })?.remaining.map(Fmt.hoursOnly)
+            ? rows.first(where: { $0.style == .week })?.remaining.map(Fmt.hoursOnly)
             : nil
         updateBlink(hasOverage: rows.contains { $0.fills.contains { $0.color == .over } })
         let view = GlyphView(rows: rows, settings: store.settings, ink: ink, hoursLeft: hours,
-                             dimmed: store.isStale || store.snapshot == nil, blinkOn: blinkOn)
+                             dimmed: store.isStale, blinkOn: blinkOn)
         let renderer = ImageRenderer(content: view)
         renderer.scale = item.button?.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         guard let image = renderer.nsImage else { return }
@@ -120,19 +120,19 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             canvas.unlockFocus()
             writePNG(canvas, to: path, scale: scale)
         }
-        if let path = env["PACE_DEBUG_DUMP_POPOVER"], !path.isEmpty, store.snapshot != nil {
+        if let path = env["PACE_DEBUG_DUMP_POPOVER"], !path.isEmpty, store.hasData {
             let view = PopoverView(store: store, openSettings: {}, close: {})
                 .background(Color(nsColor: .windowBackgroundColor))
             let renderer = ImageRenderer(content: view)
             renderer.scale = 2
             if let img = renderer.nsImage { writePNG(img, to: path, scale: 2) }
         }
-        if let path = env["PACE_DEBUG_DUMP_SETTINGS"], !path.isEmpty, store.snapshot != nil, !settingsDumped {
+        if let path = env["PACE_DEBUG_DUMP_SETTINGS"], !path.isEmpty, store.hasData, !settingsDumped {
             // A grouped Form is AppKit-backed, which ImageRenderer skips; draw it from an offscreen window instead.
             settingsDumped = true
             let hosting = NSHostingView(rootView: SettingsView(store: store))
-            hosting.frame = NSRect(x: 0, y: 0, width: 460, height: 640)
-            let window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 460, height: 640),
+            hosting.frame = NSRect(x: 0, y: 0, width: 460, height: 980)
+            let window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 460, height: 980),
                                   styleMask: [.titled], backing: .buffered, defer: false)
             window.contentView = hosting
             window.orderFront(nil)

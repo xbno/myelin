@@ -17,8 +17,6 @@ one set of meters.
 
 ## Non-goals for v1
 
-- No Codex or other providers yet. The provider protocol exists so one can be
-  added later without touching the UI.
 - No burn history or charts. The app keeps no log of past snapshots.
 - No refreshing of the OAuth token. The app only reads it.
 - No extra-usage or spend display.
@@ -121,8 +119,9 @@ Opened from the gear or the footer. Groups and controls, all persisted:
   anyone who wants the blocks anchored to their own week. Working days: Mon–Fri
   with an "include weekends" checkbox (off). Working hours: start and end
   (9 and 17). On-pace band: ±0–15 points (5).
-- **Providers**: Anthropic on/off with status line ("via Claude Code login ·
-  token fresh" or "stale since 9:12 am"). Poll every 30/60/120/300 s (60).
+- **Providers**: Anthropic and Codex, each on/off with its own status line
+  ("ok · Max", "stale since 9:12 am", "not logged in · run codex to sign in").
+  One shared poll interval: 30/60/120/180/300/600 s.
 - **General**: Launch at login.
 
 ### States
@@ -171,8 +170,8 @@ starts only past `t + allowance`. Not built.
 
 ```swift
 protocol UsageProvider {
-    var id: String { get }              // "anthropic"
-    var displayName: String { get }     // "Claude"
+    var id: String { get }              // "anthropic" | "codex"
+    var displayName: String { get }     // "Claude" | "Codex"
     func fetch() async throws -> UsageSnapshot
 }
 struct UsageSnapshot { let fetchedAt: Date; let plan: String?; let meters: [Meter] }
@@ -210,6 +209,35 @@ The UI never sees provider-specific fields.
    not-logged-in state. The app never calls the token refresh endpoint.
 
 A synthetic response from 2026-09-08 is checked in as a test fixture.
+
+### Codex provider
+
+1. Locate the `codex` binary. A menu bar app started by launchd inherits almost
+   no PATH, so the candidates are explicit — `~/.local/bin`, Homebrew,
+   `/usr/local/bin`, npm and bun — with `$CODEX_BIN` taking precedence.
+   A missing binary is `ProviderError.unavailable`, which reads differently in
+   the UI from being signed out.
+2. Confirm `~/.codex/auth.json` exists. Pace only reads it, never refreshes it;
+   the CLI owns the tokens.
+3. Spawn `codex app-server` and speak JSON-RPC over stdio: `initialize`, the
+   `initialized` notification, then `account/rateLimits/read` with
+   `excludeResetCreditDetails: true`, the flag meant for background polls.
+   `availableData` has no timeout of its own, so a watchdog terminates the
+   process at the deadline, which closes the pipe and ends the read loop.
+   SIGPIPE is ignored once, so a CLI that exits early surfaces as a write
+   error rather than killing the app.
+4. Parse `rateLimits` into the session and week meters, classifying each of
+   `primary` and `secondary` by `windowDurationMins` — up to a day is the
+   session, longer is the week — and keeping the first when both describe the
+   same span. Every other bucket in `rateLimitsByLimitId` becomes a
+   `.weeklyModel` row named by `limitName`, then `normalModelSlug`, then its
+   id. `ordinaryUsageAllowed: false` is account-wide, so it locks the main
+   bucket only; a reserve pool can still be spendable.
+
+Why not HTTP: `https://chatgpt.com/backend-api/...` answers a plain URLSession
+request with a bot-check HTML 403. The CLI is the supported interface.
+
+A synthetic response is checked in as `Fixtures/codex-ratelimits-windowed.json`.
 
 ### Polling
 
