@@ -43,6 +43,12 @@ Real size is about 94×20 pt in a 22 pt menu bar. Left to right:
    With a mark in front of it the row says which window it is (Sess, Week),
    not who it belongs to. Switching the mark off brings the provider-specific
    labels (Codex, Cdx5h) back, since nothing else then separates the columns.
+   An allowance-metered account shows two rows there, **Week** over **Month**.
+   The Week row is not separately fetched and nothing is remembered between
+   polls: it is the Month bar clipped to the week holding now, with the used
+   and tick percentages re-expressed against that week's slice of the cycle.
+   So it answers "am I ahead or behind *this week*" in Claude's own shape,
+   from the single cumulative number OpenAI actually sends.
 4. Optional **hours left** text after the bars, 13 pt: "74h". Off by default.
 
 Rows:
@@ -114,6 +120,16 @@ Top to bottom:
     "not logged in", "stale since 9:12 am". It lives with the rows it explains
     rather than being repeated as an aggregate line under the header.
 - Hairline.
+- **MONTH** group, for a provider metered by a billing-cycle allowance rather
+  than rolling windows. It replaces SESSION and WEEK, which such a provider
+  can never fill. Here the cycle is a **calendar**: a column per working
+  weekday, a row per week, one cell per working day, blank where the cycle
+  does not reach that day. Each cell is a one-block bar — same palette,
+  hatching and tick — holding the slice of the cycle that day covers, so the
+  green edge falls mid-cell on the day the spend ran out and the tick sits in
+  the day that is now. Caption, then the credits line. The current week is the
+  row holding the tick, which is why the popover shows the month once and not
+  also a separate week row.
 - **MODELS** group, vertical word. Drawn only where the provider reports
   per-model limits, so Codex grows no empty rail; alone, it stays even when
   empty and says "no per-model limits on this plan".
@@ -259,11 +275,22 @@ A synthetic response from 2026-09-08 is checked in as a test fixture.
    `.weeklyModel` row named by `limitName`, then `normalModelSlug`, then its
    id. `ordinaryUsageAllowed: false` is account-wide, so it locks the main
    bucket only; a reserve pool can still be spendable.
+5. Business plans report no rolling windows at all — `primary` and `secondary`
+   both come back null and the account is metered by a credit allowance under
+   `individualLimit`, whose numbers arrive as strings:
+   `{ "limit": "1000", "used": "250", "remainingPercent": 75, "resetsAt": … }`.
+   That becomes a `.monthly` meter. `resetsAt` lands on midnight UTC on the
+   first of a month, so the cycle is the calendar month ending there, and the
+   window length is derived from it rather than guessed. The meter carries a
+   `note` — "250 of 1000 credits" — because a percent of an unnamed thing is
+   not much use on its own.
 
 Why not HTTP: `https://chatgpt.com/backend-api/...` answers a plain URLSession
 request with a bot-check HTML 403. The CLI is the supported interface.
 
-A synthetic response is checked in as `Fixtures/codex-ratelimits-windowed.json`.
+Synthetic responses are checked in as `Fixtures/codex-ratelimits-windowed.json`
+(windowed plan) and `Fixtures/codex-ratelimits-allowance.json` (allowance
+plan, account id scrubbed).
 
 ### Polling
 

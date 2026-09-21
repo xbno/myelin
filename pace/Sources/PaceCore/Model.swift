@@ -4,6 +4,9 @@ import Foundation
 public enum MeterKind: Equatable {
     case session
     case weekly
+    /// A billing-cycle allowance rather than a rolling window — what Codex business plans
+    /// report in place of the 5-hour and weekly windows.
+    case monthly
     case weeklyModel(name: String)
 }
 
@@ -12,15 +15,20 @@ public struct Meter: Equatable {
     public var kind: MeterKind
     public var percent: Double            // 0…100
     public var resetsAt: Date?            // nil when no window is active
-    public var windowLength: TimeInterval // 5 h or 7 d
+    public var windowLength: TimeInterval // 5 h, 7 d, or a billing month
     public var locked: Bool
+    /// What the percent is a percent *of*, when the provider counts in something the user
+    /// recognises: "250 of 1000 credits". Shown as a caption; nil for plain windows.
+    public var note: String?
 
-    public init(kind: MeterKind, percent: Double, resetsAt: Date?, windowLength: TimeInterval, locked: Bool = false) {
+    public init(kind: MeterKind, percent: Double, resetsAt: Date?, windowLength: TimeInterval,
+                locked: Bool = false, note: String? = nil) {
         self.kind = kind
         self.percent = percent
         self.resetsAt = resetsAt
         self.windowLength = windowLength
         self.locked = locked
+        self.note = note
     }
 
     public var windowStart: Date? { resetsAt?.addingTimeInterval(-windowLength) }
@@ -44,6 +52,7 @@ public struct UsageSnapshot: Equatable {
 
     public var session: Meter? { meters.first { $0.kind == .session } }
     public var weekly: Meter? { meters.first { $0.kind == .weekly } }
+    public var monthly: Meter? { meters.first { $0.kind == .monthly } }
     public var models: [Meter] { meters.filter { $0.modelName != nil } }
 }
 

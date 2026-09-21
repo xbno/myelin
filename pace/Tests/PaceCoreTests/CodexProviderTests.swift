@@ -26,6 +26,26 @@ import Testing
         #expect(snap.models.first?.locked == false)
     }
 
+    /// A business plan: no rolling windows at all, just a credit allowance for the billing
+    /// cycle. The cycle is the calendar month ending at `resetsAt` (midnight UTC on the 1st).
+    @Test func parsesTheBusinessCreditAllowance() throws {
+        let url = try #require(Bundle.module.url(forResource: "codex-ratelimits-allowance",
+                                                 withExtension: "json", subdirectory: "Fixtures"))
+        let snap = try CodexProvider.parse(try Data(contentsOf: url),
+                                           fetchedAt: Date(timeIntervalSince1970: 0))
+        #expect(snap.plan == "Business")
+        #expect(snap.session == nil)
+        #expect(snap.weekly == nil)
+        let month = try #require(snap.monthly)
+        #expect(abs(month.percent - 25) < 0.0001)
+        #expect(month.resetsAt == Date(timeIntervalSince1970: 1790812800))
+        #expect(month.windowLength == 30 * 86400)   // September
+        #expect(month.note == "250 of 1000 credits")
+        #expect(month.locked == false)
+        // The allowance repeats under its own limit id; it must not also become a model row.
+        #expect(snap.models.isEmpty)
+    }
+
     /// A plan that reports both windows: the short one is the session, the long one the week.
     @Test func classifiesWindowsByDuration() throws {
         let json = """

@@ -226,6 +226,16 @@ final class UsageStore: ObservableObject {
         return WeekLayout.make(windowEnd: end, schedule: settings.schedule, calendar: calendar)
     }
 
+    /// The billing cycle cut into the same working-day blocks a week gets. The month bar
+    /// groups them by week; the Codex "Week" row is this same layout windowed to the week
+    /// holding `now`, so both rows are views of one fetched number.
+    func monthLayout(for feed: ProviderFeed?) -> WeekLayout? {
+        guard let meter = feed?.snapshot?.monthly,
+              let end = meter.resetsAt, let start = meter.windowStart else { return nil }
+        return WeekLayout.make(windowStart: start, windowEnd: end,
+                               schedule: settings.schedule, calendar: calendar)
+    }
+
     /// For the settings sheet, which shows a single reset: the anchor provider's.
     func weekWindowEnd() -> Date? { weekWindowEnd(for: anchorFeed) }
 }

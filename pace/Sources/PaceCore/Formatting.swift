@@ -12,6 +12,25 @@ public enum Fmt {
         return "\(Int((seconds / 3600).rounded()))h"
     }
 
+    /// "20d" once a window runs into days, where "480h" stops being readable. Below two
+    /// days it is just `duration`, so only the billing-cycle row ever reads differently.
+    public static func longSpan(_ seconds: TimeInterval) -> String {
+        guard seconds >= 48 * 3600 else { return duration(seconds) }
+        return "\(Int((seconds / 86400).rounded()))d"
+    }
+
+    /// "Sep 30, 8:00 pm" — for a reset far enough out that a weekday name is ambiguous.
+    public static func dayClock(_ date: Date, calendar: Calendar) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = calendar
+        f.timeZone = calendar.timeZone
+        f.dateFormat = "MMM d, h:mm a"
+        return f.string(from: date)
+            .replacingOccurrences(of: "AM", with: "am")
+            .replacingOccurrences(of: "PM", with: "pm")
+    }
+
     /// Menu bar variant: whole hours, minutes only under an hour.
     public static func hoursOnly(_ seconds: TimeInterval) -> String {
         guard seconds > 0 else { return "0h" }

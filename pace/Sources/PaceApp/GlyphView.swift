@@ -21,13 +21,13 @@ struct GlyphView: View {
     /// columns apart.
     private func label(_ row: RowModel) -> String {
         let words = settings.labelStyle == .words
-        guard settings.showMark, row.providerID == "codex", row.style != .model else {
+        // Only Session and Week carry provider-specific labels (Cdx5h, Codex) — the
+        // allowance rows are already named after their window, not their account.
+        guard settings.showMark, row.providerID == "codex",
+              row.style == .session || row.style == .week else {
             return words ? row.label : row.shortLabel
         }
-        switch row.style {
-        case .session: return words ? "Sess" : "S"
-        default: return words ? "Week" : "W"
-        }
+        return row.style == .session ? (words ? "Sess" : "S") : (words ? "Week" : "W")
     }
 
     /// Rows grouped by provider, in the order they arrive. Two providers stacked would be
@@ -95,6 +95,8 @@ enum Tooltip {
             switch r.style {
             case .session: name = "Session"
             case .week: name = "Week"
+            case .month: name = "Month"
+            case .monthWeek: name = "This week"
             case .model: name = r.label
             }
             var parts = [manyProviders ? "\(r.providerName) \(name)" : name]
@@ -105,6 +107,7 @@ enum Tooltip {
                 parts.append("\(Fmt.duration(e)) elapsed")
                 parts.append("\(Fmt.duration(rem)) remaining")
             }
+            if let note = r.note { parts.append(note) }
             if r.style == .model {
                 parts.append("\(Int(r.percent.rounded()))% used")
                 parts.append("resets with Week")

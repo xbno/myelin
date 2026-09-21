@@ -33,7 +33,9 @@ public struct DayBlock: Equatable {
     public var hours: Double { end.timeIntervalSince(start) / 3600 }
 }
 
-/// The weekly window cut into working-day blocks. `windowEnd` is the reset instant.
+/// A usage window cut into working-day blocks. `windowEnd` is the reset instant. Usually a
+/// week, hence the name; a billing month goes through the same machinery, just with more
+/// blocks, so the pace maths and the tick are shared.
 public struct WeekLayout: Equatable {
     public let windowStart: Date
     public let windowEnd: Date
@@ -42,7 +44,12 @@ public struct WeekLayout: Equatable {
     public var totalWorkingHours: Double { blocks.reduce(0) { $0 + $1.hours } }
 
     public static func make(windowEnd: Date, schedule: Schedule, calendar: Calendar) -> WeekLayout {
-        let windowStart = windowEnd.addingTimeInterval(-7 * 86400)
+        make(windowStart: windowEnd.addingTimeInterval(-7 * 86400), windowEnd: windowEnd,
+             schedule: schedule, calendar: calendar)
+    }
+
+    public static func make(windowStart: Date, windowEnd: Date, schedule: Schedule,
+                            calendar: Calendar) -> WeekLayout {
         var blocks: [DayBlock] = []
         var day = calendar.startOfDay(for: windowStart)
         while day < windowEnd {

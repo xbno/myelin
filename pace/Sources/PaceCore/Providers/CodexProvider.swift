@@ -222,6 +222,8 @@ public struct CodexProvider: UsageProvider {
             }
         }
 
+        if let allowance = allowance(main) { meters.append(allowance) }
+
         guard !meters.isEmpty else { throw ProviderError.badResponse("no usable rate limit windows") }
         return UsageSnapshot(fetchedAt: fetchedAt, plan: planLabel(main["planType"] as? String), meters: meters)
     }
@@ -246,7 +248,40 @@ public struct CodexProvider: UsageProvider {
         if let d = value as? Double { return d }
         if let i = value as? Int { return Double(i) }
         if let n = value as? NSNumber { return n.doubleValue }
+        // individualLimit sends its numbers as strings: "1000", "250".
+        if let s = value as? String { return Double(s) }
         return nil
+    }
+
+    /// Business plans report no rolling windows at all — `primary` and `secondary` come back
+    /// null and the account is metered by a credit allowance for the billing cycle, under
+    /// `individualLimit`. Observed shape:
+    ///   { "limit": "1000", "used": "250", "remainingPercent": 75, "resetsAt": 1790812800 }
+    /// `resetsAt` lands on midnight UTC on the first of a month, so the cycle is the calendar
+    /// month ending there — that is where the window length comes from.
+    static func allowance(_ main: [String: Any]) -> Meter? {
+        guard let raw = main["individualLimit"] as? [String: Any] else { return nil }
+        let limit = number(raw["limit"])
+        let used = number(raw["used"])
+        let percent: Double
+        if let limit, let used, limit > 0 {
+            percent = 100 * used / limit
+        } else if let remaining = number(raw["remainingPercent"]) {
+            percent = 100 - remaining
+        } else {
+            return nil
+        }
+        guard let resetsAt = number(raw["resetsAt"]).map({ Date(timeIntervalSince1970: $0) })
+        else { return nil }
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let start = utc.date(byAdding: .month, value: -1, to: resetsAt) ?? resetsAt.addingTimeInterval(-30 * 86400)
+        let note = (limit != nil && used != nil)
+            ? "\(Int(used!.rounded())) of \(Int(limit!.rounded())) credits"
+            : nil
+        return Meter(kind: .monthly, percent: min(100, max(0, percent)), resetsAt: resetsAt,
+                     windowLength: resetsAt.timeIntervalSince(start),
+                     locked: locked(snapshot: main, percent: percent), note: note)
     }
 
     /// "prolite" → "Prolite".

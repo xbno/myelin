@@ -88,6 +88,10 @@ struct PopoverView: View {
                               palette: Palette) -> some View {
         let session = rows.first { $0.style == .session }
         let week = rows.first { $0.style == .week }
+        // The whole cycle, in week blocks. Its current block is what the menu bar zooms
+        // into as a Week row; here that week is simply visible inside the month, under
+        // the tick, so the popover shows the month once rather than twice.
+        let month = rows.first { $0.style == .month }
         VStack(alignment: .leading, spacing: 0) {
             if let s = session {
                 sectionLine("Session", s, now: now)
@@ -99,6 +103,19 @@ struct PopoverView: View {
                 meterRow(w, palette: palette, letters: true)
                 caption("one working day per block · tick = now, \(Fmt.clock(now, now: now, calendar: store.calendar))",
                         legend: false, palette: palette)
+            }
+            if let m = month {
+                sectionLine("Month", m, now: now).padding(.top, session == nil && week == nil ? 0 : 6)
+                if let grid = m.grid {
+                    monthRow(m, grid: grid, palette: palette)
+                    caption("one working day per cell · tick = now, \(Fmt.clock(now, now: now, calendar: store.calendar))",
+                            legend: false, palette: palette)
+                } else {
+                    meterRow(m, palette: palette, letters: true)
+                    caption("one working week per block · tick = now, \(Fmt.clock(now, now: now, calendar: store.calendar))",
+                            legend: false, palette: palette)
+                }
+                if let note = m.note { caption(note, legend: false, palette: palette) }
             }
             // Sits with the rows it explains. It used to be repeated verbatim as an
             // aggregate line under the header, which is where the doubled "Codex CLI not
@@ -139,10 +156,13 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(title.uppercased()).font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
             if r.active, let e = r.elapsed, let rem = r.remaining, let reset = r.resetsAt {
-                (Text("\(Fmt.duration(e)) elapsed").bold()
+                // A billing cycle runs in days, where "480h" and a bare weekday both stop
+                // meaning anything.
+                let long = r.style == .month
+                (Text("\(long ? Fmt.longSpan(e) : Fmt.duration(e)) elapsed").bold()
                  + Text(" · ")
-                 + Text("\(Fmt.duration(rem)) remaining").bold()
-                 + Text(" · resets \(Fmt.clock(reset, now: now, calendar: store.calendar))"))
+                 + Text("\(long ? Fmt.longSpan(rem) : Fmt.duration(rem)) remaining").bold()
+                 + Text(" · resets \(long ? Fmt.dayClock(reset, calendar: store.calendar) : Fmt.clock(reset, now: now, calendar: store.calendar))"))
                     .font(.system(size: 11)).foregroundColor(.secondary)
                     .lineLimit(1)
             } else if r.style == .session {
@@ -158,6 +178,7 @@ struct PopoverView: View {
         switch r.style {
         case .session: label = "Session"
         case .week: label = "Week"
+        case .month, .monthWeek: label = r.label
         case .model: label = r.label
         }
         return HStack(alignment: .bottom, spacing: 4) {
@@ -171,6 +192,21 @@ struct PopoverView: View {
                     hatched: store.settings.barStyle == .hatched)
             Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit().lineLimit(1).frame(width: 40, alignment: .trailing)
             verdict(r, palette: palette).lineLimit(1).minimumScaleFactor(0.85).frame(width: 74, alignment: .leading)
+        }
+        .padding(.vertical, 3)
+    }
+
+    /// The cycle as a calendar. Same columns as every other row — name, mark, percent,
+    /// verdict — so it lines up with the bars above it; only the mark is taller.
+    private func monthRow(_ r: RowModel, grid: MonthGrid, palette: Palette) -> some View {
+        HStack(alignment: .center, spacing: 4) {
+            Text(r.label).lineLimit(1).frame(width: 60, alignment: .leading)
+            MonthGridView(grid: grid, used: r.percent, tick: r.tick ?? 0, palette: palette,
+                          width: 130, hatched: store.settings.barStyle == .hatched)
+            Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit()
+                .lineLimit(1).frame(width: 40, alignment: .trailing)
+            verdict(r, palette: palette).lineLimit(1).minimumScaleFactor(0.85)
+                .frame(width: 74, alignment: .leading)
         }
         .padding(.vertical, 3)
     }
