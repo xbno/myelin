@@ -191,11 +191,34 @@ final class SystemAudioTap {
                 deviceListener)
             self.deviceListener = nil
         }
+        // Take the CoreAudio handles off the queue, then tear them down from
+        // THIS thread. AudioDeviceStop blocks until the IOProc has drained, and
+        // the IOProc runs on `queue` — doing that inside queue.sync deadlocks:
+        // stop() waits to own the queue while CoreAudio waits for the queue to
+        // drain. Sep 21: the child hung in _dispatch_event_loop_wait_for_ownership,
+        // never exited on SIGTERM, and the menu bar stayed stuck "recording"
+        // with no way to start a new one.
+        var proc: AudioDeviceIOProcID?
+        var aggregate = AudioObjectID(kAudioObjectUnknown)
+        var tap = AudioObjectID(kAudioObjectUnknown)
         queue.sync {
             stopped = true
             healthTimer?.cancel()
             healthTimer = nil
-            stopCore_onQueue()
+            (proc, aggregate, tap) = (procID, aggregateID, tapID)
+            procID = nil
+            aggregateID = AudioObjectID(kAudioObjectUnknown)
+            tapID = AudioObjectID(kAudioObjectUnknown)
+        }
+        if let proc, aggregate != kAudioObjectUnknown {
+            AudioDeviceStop(aggregate, proc)
+            AudioDeviceDestroyIOProcID(aggregate, proc)
+        }
+        if aggregate != kAudioObjectUnknown {
+            AudioHardwareDestroyAggregateDevice(aggregate)
+        }
+        if tap != kAudioObjectUnknown {
+            AudioHardwareDestroyProcessTap(tap)
         }
     }
 }
