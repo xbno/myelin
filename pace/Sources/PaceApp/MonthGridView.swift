@@ -1,6 +1,23 @@
 import SwiftUI
 import PaceCore
 
+/// A weekday the window does not reach — the days before a cycle starts and after it
+/// ends. A dot rather than an empty gap, so the eye reads "not part of this" instead of
+/// losing the column; and rather than a track block, which would claim the day is merely
+/// unspent. Used by the calendar and by the menu bar's partial weeks.
+struct AbsentDay: View {
+    var width: CGFloat
+    var height: CGFloat
+    var dot: CGFloat = 2
+
+    var body: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.4))
+            .frame(width: dot, height: dot)
+            .frame(width: width, height: height)
+    }
+}
+
 /// A billing cycle drawn as a calendar: a column per working weekday, a row per week, one
 /// cell per working day.
 ///
@@ -58,7 +75,7 @@ struct MonthGridView: View {
                                     width: cellWidth, height: cellHeight, gap: 0,
                                     tickWidth: 1.2, trackOpacity: 0.22, hatched: hatched)
                         } else {
-                            Color.clear.frame(width: cellWidth, height: cellHeight)
+                            AbsentDay(width: cellWidth, height: cellHeight)
                         }
                     }
                 }

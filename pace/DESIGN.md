@@ -123,8 +123,12 @@ Top to bottom:
 - **MONTH** group, for a provider metered by a billing-cycle allowance rather
   than rolling windows. It replaces SESSION and WEEK, which such a provider
   can never fill. Here the cycle is a **calendar**: a column per working
-  weekday, a row per week, one cell per working day, blank where the cycle
-  does not reach that day. Each cell is a one-block bar — same palette,
+  weekday, a row per week, one cell per working day, and a dot where the
+  cycle does not reach that day — a cycle starting on a Tuesday leaves a dot
+  under Mo in its first row. A dot rather than a gap, which would lose the
+  column, and rather than an empty track block, which would claim the day was
+  merely unspent. The menu bar's Week row does the same when the week it shows
+  is a partial one. Each cell is a one-block bar — same palette,
   hatching and tick — holding the slice of the cycle that day covers, so the
   green edge falls mid-cell on the day the spend ran out and the tick sits in
   the day that is now. Caption, then the credits line. The current week is the

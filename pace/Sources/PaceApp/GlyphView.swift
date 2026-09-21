@@ -30,6 +30,29 @@ struct GlyphView: View {
         return row.style == .session ? (words ? "Sess" : "S") : (words ? "Week" : "W")
     }
 
+    /// The row's bar, padded with dots for any weekday columns the window does not reach,
+    /// so a short week reads as short instead of as a stretched full one.
+    @ViewBuilder
+    private func bar(_ row: RowModel, palette: Palette) -> some View {
+        let absent = row.absentLeading + row.absentTrailing
+        let columns = absent + row.blocks.count
+        let unit = columns > 0 ? Self.barWidth / CGFloat(columns) : Self.barWidth
+        HStack(spacing: 0) {
+            ForEach(0..<row.absentLeading, id: \.self) { _ in
+                AbsentDay(width: unit, height: 6, dot: 1.6)
+            }
+            BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
+                    solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
+                    width: absent > 0 ? unit * CGFloat(row.blocks.count) : Self.barWidth,
+                    hatched: settings.barStyle == .hatched)
+            ForEach(0..<row.absentTrailing, id: \.self) { _ in
+                AbsentDay(width: unit, height: 6, dot: 1.6)
+            }
+        }
+    }
+
+    private static let barWidth: CGFloat = 50
+
     /// Rows grouped by provider, in the order they arrive. Two providers stacked would be
     /// five rows tall — more than the menu bar gives us — so they sit side by side instead,
     /// which costs width the bar has and keeps each column at its original height.
@@ -65,9 +88,7 @@ struct GlyphView: View {
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.7)
                                     .frame(width: labelWidth, height: 6, alignment: .leading)
-                                BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
-                                        solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
-                                        hatched: settings.barStyle == .hatched)
+                                    bar(row, palette: palette)
                             }
                         }
                     }

@@ -2,7 +2,8 @@ import Foundation
 import PaceCore
 
 /// Fake provider for manual checks, no network. Launch with
-/// `PACE_DEBUG_STATE=sample .build/debug/PaceApp`; states: sample, nosession, stale, loggedout, locked.
+/// `PACE_DEBUG_STATE=sample .build/debug/PaceApp`; states: sample, nosession, stale,
+/// loggedout, locked, allowance.
 struct DebugProvider: UsageProvider {
     let id = "debug"
     let displayName = "Claude"
@@ -30,6 +31,17 @@ struct DebugProvider: UsageProvider {
             throw ProviderError.transport("debug: network down")
         case "loggedout":
             throw ProviderError.notLoggedIn
+        case "allowance":
+            // A billing-cycle plan whose cycle ENDS mid-week, so the current week is a
+            // partial one and the absent-day dots are on screen without waiting for the
+            // calendar to reach a month boundary.
+            let endsWednesday = calendar.nextDate(
+                after: Date(), matching: DateComponents(hour: 20, minute: 0, weekday: 4),
+                matchingPolicy: .nextTime)!
+            return UsageSnapshot(fetchedAt: Date(), plan: "Business", meters: [
+                Meter(kind: .monthly, percent: 25, resetsAt: endsWednesday,
+                      windowLength: 22 * 86400, note: "250 of 1000 credits"),
+            ])
         case "locked":
             return UsageSnapshot(fetchedAt: Date(), plan: "Team", meters: [
                 Meter(kind: .session, percent: 41, resetsAt: sessionReset, windowLength: five),

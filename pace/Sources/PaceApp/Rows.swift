@@ -57,6 +57,12 @@ struct RowModel: Identifiable {
     /// Set on a month row: the popover draws the cycle as a calendar instead of a bar. The
     /// menu bar has no room for that and uses `blocks` — the same cycle, one block per week.
     var grid: MonthGrid? = nil
+    /// Weekday columns the window does not reach, before and after its blocks. A cycle
+    /// starting on a Tuesday leaves Monday absent in its first week. Drawn as dots, so a
+    /// short week reads as short instead of as a stretched full one. Always at the edges:
+    /// a window is contiguous, so it can only fall short at its start or its end.
+    var absentLeading: Int = 0
+    var absentTrailing: Int = 0
 }
 
 enum RowBuilder {
@@ -194,6 +200,7 @@ enum RowBuilder {
     ) -> [RowModel] {
         let weeks = weekSlices(of: layout, calendar: calendar)
         guard !weeks.isEmpty else { return [] }
+        let columns = orderedWeekdays(weeks: weeks, calendar: calendar)
         let used = meter.percent
         let tick = layout.tick(at: now)
 
@@ -212,6 +219,11 @@ enum RowBuilder {
             let blocks = slice.days.map {
                 BlockSpec(share: total > 0 ? $0.share / total : 0, letter: dayLetters[$0.weekday - 1])
             }
+            // Which weekday columns this week never reaches — Monday in a cycle that
+            // starts on a Tuesday, Thursday and Friday in one ending on a Wednesday.
+            let present = Set(slice.days.map(\.weekday))
+            let lead = columns.prefix { !present.contains($0) }.count
+            let trail = columns.reversed().prefix { !present.contains($0) }.count
             let localUsed = local(used), localTick = local(tick)
             out.append(RowModel(
                 id: "\(feed.id)-month-week", providerID: feed.id, providerName: feed.displayName,
@@ -223,7 +235,8 @@ enum RowBuilder {
                 solidColorHex: nil,
                 elapsed: now.timeIntervalSince(slice.start),
                 remaining: slice.end.timeIntervalSince(now),
-                resetsAt: slice.end, active: true, locked: meter.locked))
+                resetsAt: slice.end, active: true, locked: meter.locked,
+                absentLeading: lead, absentTrailing: trail))
         }
 
         out.append(RowModel(
@@ -238,7 +251,7 @@ enum RowBuilder {
             elapsed: now.timeIntervalSince(layout.windowStart),
             remaining: layout.windowEnd.timeIntervalSince(now),
             resetsAt: layout.windowEnd, active: true, locked: meter.locked, note: meter.note,
-            grid: grid(weeks: weeks, calendar: calendar)))
+            grid: grid(weeks: weeks, columns: columns)))
         return out
     }
 
@@ -246,14 +259,9 @@ enum RowBuilder {
     /// gap wherever the cycle does not reach that day.
     private static func grid(
         weeks: [(start: Date, end: Date, lower: Double, upper: Double, days: [DayBlock])],
-        calendar: Calendar
+        columns ordered: [Int]
     ) -> MonthGrid? {
-        let weekdays = Set(weeks.flatMap { $0.days.map(\.weekday) })
-        guard !weekdays.isEmpty else { return nil }
-        // Week order from the calendar's own first day, so Sunday-first locales line up.
-        let ordered = (0..<7)
-            .map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
-            .filter { weekdays.contains($0) }
+        guard !ordered.isEmpty else { return nil }
         var rows: [[MonthGrid.Cell?]] = []
         for week in weeks {
             var cursor = week.lower
@@ -265,6 +273,18 @@ enum RowBuilder {
             rows.append(ordered.map { byWeekday[$0] })
         }
         return MonthGrid(columns: ordered.map { dayLetters[$0 - 1] }, rows: rows)
+    }
+
+    /// Every weekday the cycle works, in week order from the calendar's own first day so
+    /// Sunday-first locales line up. These are the calendar's columns.
+    private static func orderedWeekdays(
+        weeks: [(start: Date, end: Date, lower: Double, upper: Double, days: [DayBlock])],
+        calendar: Calendar
+    ) -> [Int] {
+        let weekdays = Set(weeks.flatMap { $0.days.map(\.weekday) })
+        return (0..<7)
+            .map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
+            .filter { weekdays.contains($0) }
     }
 
     /// The cycle's working days grouped into calendar weeks. `lower`/`upper` are where each
