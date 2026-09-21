@@ -21,9 +21,18 @@ public struct FillRange: Equatable {
 }
 
 public enum Fill {
+    /// A limit that has run out. The whole budget is red, tick or no tick: there is nothing
+    /// left to pace, so the bar stops reporting a schedule and reports the block.
+    public static let blocked = [FillRange(from: 0, to: 100, color: .over)]
+
     /// The three-color rule. Green covers 0 to min(used, tick). Exactly one of yellow or red
     /// follows, and it is as long as the miss.
-    public static func pace(used: Double, tick: Double) -> [FillRange] {
+    ///
+    /// `exhausted` short-circuits all of it. Without that, a week spent to the last percent on
+    /// its first day reads as green for the rest of the week, because the tick keeps catching
+    /// up to a bar that cannot move — the one state where "on schedule" is exactly wrong.
+    public static func pace(used: Double, tick: Double, exhausted: Bool = false) -> [FillRange] {
+        if exhausted { return blocked }
         let u = min(100, max(0, used))
         let t = min(100, max(0, tick))
         var out: [FillRange] = []
@@ -37,7 +46,10 @@ public enum Fill {
         return out
     }
 
-    public static func solid(used: Double) -> [FillRange] {
+    /// A model row's single color — red once the pool it draws on is spent, for the same
+    /// reason: a full bar in the model's own color says "full", not "blocked".
+    public static func solid(used: Double, exhausted: Bool = false) -> [FillRange] {
+        if exhausted { return blocked }
         let u = min(100, max(0, used))
         return u > 0 ? [FillRange(from: 0, to: u, color: .solid)] : []
     }

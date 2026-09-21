@@ -202,6 +202,7 @@ struct PopoverView: View {
         HStack(alignment: .center, spacing: 4) {
             Text(r.label).lineLimit(1).frame(width: 60, alignment: .leading)
             MonthGridView(grid: grid, used: r.percent, tick: r.tick ?? 0, palette: palette,
+                          exhausted: r.locked,
                           width: 130, hatched: store.settings.barStyle == .hatched)
             Text("\(Int(r.percent.rounded()))%").bold().monospacedDigit()
                 .lineLimit(1).frame(width: 40, alignment: .trailing)

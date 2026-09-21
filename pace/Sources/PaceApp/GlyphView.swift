@@ -42,7 +42,11 @@ struct GlyphView: View {
                 AbsentDay(width: unit, height: 6, dot: 1.6)
             }
             BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
-                    solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
+                    solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette,
+                    // The blink belongs to the row that is over pace. A locked row is red
+                    // for days, and letting it flash along would leave it unreadable on the
+                    // off-phase — a full bar of the unspent color says the opposite thing.
+                    blinkOn: row.locked ? true : blinkOn,
                     width: absent > 0 ? unit * CGFloat(row.blocks.count) : Self.barWidth,
                     hatched: settings.barStyle == .hatched)
             ForEach(0..<row.absentTrailing, id: \.self) { _ in

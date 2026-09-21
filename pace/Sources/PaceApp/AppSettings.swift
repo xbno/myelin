@@ -28,7 +28,7 @@ struct AppSettings: Codable, Equatable {
     var showHoursLeft = false
     var modelRows = ModelRowsSetting()
     var usedColor = "#0CA30C"
-    var unspentColor = "#FAB219"
+    var unspentColor = "#FB69EA"
     var overColor = "#D03B3B"
     var modelColors: [String: String] = ["Fable": AppSettings.claudeOrange]
     var barStyle: BarStyle = .hatched

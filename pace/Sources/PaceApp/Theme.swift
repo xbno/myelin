@@ -49,13 +49,28 @@ struct Palette {
         }
     }
 
-    /// Verdict text color. Yellow text is unreadable on a light surface, so use amber there.
+    /// Verdict text color. A bar color bright enough to read on the menu bar can be invisible
+    /// as text on a light popover, so on that surface it is darkened by how bright it actually
+    /// is — yellow needs a lot, pink barely any. The swatch beside the text keeps the bar's
+    /// own color, so the two still read as the same thing.
     func verdictColor(_ state: PaceState, onLightSurface: Bool) -> Color {
         switch state {
         case .onPace: return used
         case .over: return over
-        case .under: return onLightSurface ? Color(hex: "#9A6B00") : unspent
+        case .under: return onLightSurface ? Palette.readableOnLight(unspent) : unspent
         }
+    }
+
+    /// Target luminance for text on a light background; above it, brightness comes down in
+    /// proportion and saturation up a little to keep the hue recognisable.
+    static func readableOnLight(_ color: Color, target: Double = 0.45) -> Color {
+        guard let ns = NSColor(color).usingColorSpace(.sRGB) else { return color }
+        let luminance = 0.2126 * ns.redComponent + 0.7152 * ns.greenComponent + 0.0722 * ns.blueComponent
+        guard luminance > target else { return color }
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return Color(nsColor: NSColor(hue: h, saturation: min(1, s * 1.15),
+                                      brightness: b * CGFloat(target) / luminance, alpha: a))
     }
 
     func swatchColor(_ state: PaceState) -> Color {

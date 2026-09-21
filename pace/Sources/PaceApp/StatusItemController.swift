@@ -78,7 +78,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let hours = store.settings.showHoursLeft
             ? rows.first(where: { $0.style == .week })?.remaining.map(Fmt.hoursOnly)
             : nil
-        updateBlink(hasOverage: rows.contains { $0.fills.contains { $0.color == .over } })
+        updateBlink(hasOverage: rows.contains { !$0.locked && $0.fills.contains { $0.color == .over } })
         let view = GlyphView(rows: rows, settings: store.settings, ink: ink, hoursLeft: hours,
                              dimmed: store.isStale, blinkOn: blinkOn)
         let renderer = ImageRenderer(content: view)
@@ -91,8 +91,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         dumpIfRequested(image)
     }
 
-    /// Starts (or stops) the timer that alternates a red-over-budget bar with yellow, so a session
-    /// or week that's over pace is hard to miss. Idle whenever nothing is over.
+    /// Starts (or stops) the timer that alternates a red-over-budget bar with the unspent color,
+    /// so a session or week that's over pace is hard to miss. Idle whenever nothing is over — and
+    /// a locked row is left steady, because a limit that has run out stays run out for days and
+    /// a menu bar blinking that whole time is noise, not a warning.
     private func updateBlink(hasOverage: Bool) {
         guard hasOverage else {
             blinkTimer?.invalidate()

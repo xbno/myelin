@@ -41,10 +41,14 @@ block of a row names its unit.
   only during working hours, so it is frozen overnight and, with weekends off,
   all weekend.
 - **Green** is budget used up to the tick, on schedule.
-- **Yellow** appears from your usage to the tick when you are behind. Its length
+- **Pink** appears from your usage to the tick when you are behind. Its length
   is what you have left unspent so far.
 - **Red** appears from the tick to your usage when you are ahead. Its length is
   the overshoot.
+- **A limit that has run out goes fully red**, every block of it, and stays that
+  way until the reset. Otherwise a week you burned through on its first day
+  would read green for the rest of the week, because the tick keeps catching up
+  to a bar that cannot move.
 - **Fable** is always orange and has no tick. Its verdict is in the popover.
 - A half-transparent glyph means the last fetch failed. Hover for the reason.
 

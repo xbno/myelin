@@ -68,11 +68,19 @@ Rows:
 tick position in percent:
 
 - green from 0 to `min(u, t)` — used on schedule
-- yellow from `u` to `t` when `u < t` — unspent so far, exactly the size of the miss
+- pink from `u` to `t` when `u < t` — unspent so far, exactly the size of the miss
 - red from `t` to `u` when `u > t` — spent ahead, exactly the size of the miss
 - the white tick is always drawn at `t`
 
-Defaults: green `#0CA30C`, yellow `#FAB219`, red `#D03B3B`. All four colors
+**Exhausted overrides all of it.** A limit the provider reports as locked — 100%
+used, or blocked by a spend control below that — is red from 0 to 100, tick or
+no tick, and a model row goes red instead of its own color. Without the override
+a week spent to the last percent on its first day reads green for the rest of
+the week: `t` keeps rising toward a `u` that cannot move, so the three-color
+rule calls a wall "on schedule". An exhausted bar also stops blinking, since it
+stays exhausted for days and a menu bar flashing that whole time is noise.
+
+Defaults: green `#0CA30C`, pink `#FB69EA`, red `#D03B3B`. All four colors
 (these three plus each model's) are settings.
 
 **Ink follows the menu bar appearance.** Labels, unit text on empty blocks,
@@ -146,9 +154,11 @@ No projection line. The popover uses the same math, colors and formats as the
 glyph.
 
 **Verdict text**: `d = round(u − t)`. Within the on-pace band (default ±5) it
-reads "on pace" in green. Otherwise "+d over" in red or "−d under" in amber
-(`#9A6B00` on light, `#FAB219` on dark). The band affects only this text; fills
-are exact.
+reads "on pace" in green. Otherwise "+d over" in red or "−d under" in the
+unspent color — darkened on the light popover in proportion to its own
+luminance, so yellow drops to amber and pink barely moves. The band affects
+only this text; fills are exact. A locked row shows "locked" instead of a
+verdict.
 
 ### Settings window
 

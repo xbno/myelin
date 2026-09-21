@@ -35,9 +35,26 @@ import Testing
         ])
     }
 
+    @Test func exhaustedIsAllOverWhateverTheTickSays() {
+        // The case the rule exists for: the week spent on its first day. Green to the tick
+        // would report it as on schedule right up to the reset.
+        #expect(Fill.pace(used: 100, tick: 14, exhausted: true) == [FillRange(from: 0, to: 100, color: .over)])
+        #expect(Fill.pace(used: 100, tick: 99, exhausted: true) == [FillRange(from: 0, to: 100, color: .over)])
+        // A locked limit that never reached 100 — a spend control, say — blocks just the same.
+        #expect(Fill.pace(used: 62, tick: 70, exhausted: true) == [FillRange(from: 0, to: 100, color: .over)])
+    }
+
+    @Test func notExhaustedKeepsTheThreeColorRule() {
+        #expect(Fill.pace(used: 100, tick: 14, exhausted: false) == [
+            FillRange(from: 0, to: 14, color: .used),
+            FillRange(from: 14, to: 100, color: .over),
+        ])
+    }
+
     @Test func solid() {
         #expect(Fill.solid(used: 28) == [FillRange(from: 0, to: 28, color: .solid)])
         #expect(Fill.solid(used: 0).isEmpty)
+        #expect(Fill.solid(used: 100, exhausted: true) == [FillRange(from: 0, to: 100, color: .over)])
     }
 
     @Test func verdictBand() {

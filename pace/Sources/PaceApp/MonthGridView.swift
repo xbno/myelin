@@ -31,6 +31,8 @@ struct MonthGridView: View {
     let used: Double
     let tick: Double
     let palette: Palette
+    /// The allowance has run out: every cell is red, the same block the linear bar shows.
+    var exhausted: Bool = false
     var width: CGFloat = 130
     var cellHeight: CGFloat = 7
     var gap: CGFloat = 2
@@ -69,7 +71,8 @@ struct MonthGridView: View {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
                         if let cell {
                             BarView(blocks: [BlockSpec(share: 1, letter: nil)],
-                                    fills: Fill.pace(used: local(used, cell), tick: local(tick, cell)),
+                                    fills: Fill.pace(used: local(used, cell), tick: local(tick, cell),
+                                                     exhausted: exhausted),
                                     tick: holdsNow(cell) ? local(tick, cell) : nil,
                                     unit: nil, solid: nil, palette: palette,
                                     width: cellWidth, height: cellHeight, gap: 0,
