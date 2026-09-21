@@ -23,11 +23,12 @@ If `recorder` is not on PATH, build/install it from the repo: `cd recorder && ma
 
 ## Sandboxed session (Cowork)? Attach the folder FIRST
 
-Recordings live on the user's Mac at `~/ml/myelin/recordings`. Inside
-a Cowork VM that folder does **not exist until attached** — so attaching is
-**step 1, before any pull** (skip only if the session already has it). Request access
-to `~/ml/myelin` with the folder-access tool; its response prints the
-connected path. From then on always pull with the recordings path pinned:
+Recordings live in the folder the user picked in the menu-bar app, named in
+`~/.config/live-recorder/recordings-dir` (read that file to learn the path).
+Inside a Cowork VM that folder does **not exist until attached** — so attaching
+is **step 1, before any pull** (skip only if the session already has it).
+Request access to the recordings folder (or the repo holding it) with the
+folder-access tool; its response prints the connected path. From then on always pull with the recordings path pinned:
 
 ```bash
 LIVE_RECORDER_DIR=<connected-path>/recordings python3 <skill-dir>/scripts/pull.py
@@ -49,9 +50,10 @@ skill mounts are often noexec, so running the script directly fails with
 "Permission denied".
 
 - Auto-selects the **newest** transcript in the recordings dir on the
-  *first* pull of a session — `$LIVE_RECORDER_DIR` if set, else
-  `~/ml/myelin/recordings/`, else the Cowork-session mounts
-  (`~/mnt/**/recordings`, or the folder's original `/Users/<user>/…` path).
+  *first* pull of a session — `$LIVE_RECORDER_DIR` if set, else the folder
+  named in `~/.config/live-recorder/recordings-dir`, else the Cowork-session
+  mounts (`~/mnt/**/recordings`, or the folder's original `/Users/<user>/…`
+  path).
   In a Cowork session the recordings folder (or the repo containing it) must
   be **attached to the session** for any of this to be visible.
 - **That file is then pinned for the rest of the session.** Every later

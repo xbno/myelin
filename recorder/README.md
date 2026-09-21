@@ -66,8 +66,11 @@ recorder --help               # --out, --locale, --mic-only, --system-only,
                               # --no-diarize, --aec, --diarize-file
 ```
 
-Transcripts land in `~/ml/myelin/recordings/` (one `.jsonl` per call,
-gitignored — never committed). Override with `$LIVE_RECORDER_DIR` or `--out`.
+Transcripts land in the folder picked in the menu bar (`Recordings folder…`),
+saved as one line in `~/.config/live-recorder/recordings-dir` — the app, this
+CLI and the Claude skill all read it, so no checkout path is hardcoded. One
+`.jsonl` per call, gitignored — never committed. The folder is created if it
+doesn't exist. Override one run with `$LIVE_RECORDER_DIR` or `--out`.
 
 ## Claude skill
 

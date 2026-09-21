@@ -50,8 +50,9 @@ struct Main {
 
                 Records mic + system audio and transcribes both locally (SpeechAnalyzer,
                 on-device) into an append-only JSONL transcript. Ctrl-C to stop.
-                Default output: ~/ml/myelin/recordings/<timestamp>.jsonl
-                (override with $LIVE_RECORDER_DIR or --out).
+                Output folder: $LIVE_RECORDER_DIR, else whatever the menu-bar app
+                saved in ~/.config/live-recorder/recordings-dir, else ~/recordings.
+                Override one run with --out. Missing folders are created.
 
                 Speaker labels: remote speakers are diarized locally (FluidAudio LS-EEND)
                 into S1/S2/…, for one call only. Real names come from a live meet-tap
@@ -72,15 +73,24 @@ struct Main {
         let sessionStart = Date()
         let stamp = ISO8601DateFormatter().string(from: sessionStart)
             .replacingOccurrences(of: ":", with: "-")
-        // Default under the user's project folder (not ~/Library, which is a
-        // macOS-protected path that sandboxed agents like Cowork can't mount).
-        // Override with $LIVE_RECORDER_DIR.
+        // Not ~/Library: a macOS-protected path that sandboxed agents like
+        // Cowork can't mount. The folder is the user's own, picked once in the
+        // menu-bar app and saved as one line of text that this CLI and the
+        // pull skill both read — so no checkout path is baked in anywhere.
         let baseDir: URL = {
             if let env = ProcessInfo.processInfo.environment["LIVE_RECORDER_DIR"], !env.isEmpty {
                 return URL(fileURLWithPath: (env as NSString).expandingTildeInPath)
             }
+            let config = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".config/live-recorder/recordings-dir")
+            if let text = try? String(contentsOf: config, encoding: .utf8) {
+                let path = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !path.isEmpty {
+                    return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+                }
+            }
             return FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("ml/myelin/recordings")
+                .appendingPathComponent("recordings")
         }()
         let outPath = out ?? baseDir.appendingPathComponent("\(stamp).jsonl").path
         let locale = Locale(identifier: localeID)

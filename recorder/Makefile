@@ -3,6 +3,11 @@ BINDIR := $(PREFIX)/bin
 SKILL_SRC := ../skills/live-recorder
 SKILL_DST := $(HOME)/.claude/skills/live-recorder
 APP := LiveRecorder.app
+# The checkout this app is built from. Baked into the bundle as the value the
+# first-launch "Where should recordings go?" dialog is prefilled with — it is a
+# suggestion, never the setting itself. The setting lives in
+# ~/.config/live-recorder/recordings-dir and only the user writes it.
+REPO_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null || (cd .. && pwd))
 
 .PHONY: build install skill-zip app app-install uninstall clean
 
@@ -43,6 +48,9 @@ app:
 	cp .build/release/recorder $(APP)/Contents/MacOS/recorder
 	cp Resources/AppInfo.plist $(APP)/Contents/Info.plist
 	cp Resources/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
+	/usr/libexec/PlistBuddy -c \
+		"Add :LRDefaultRecordingsDir string $(REPO_ROOT)/recordings" \
+		$(APP)/Contents/Info.plist
 	codesign --force --deep --sign - $(APP) >/dev/null 2>&1 || true
 	@echo "built $(APP) — run it with:  open $(APP)"
 
@@ -53,6 +61,7 @@ app-install: app
 	cp -R $(APP) /Applications/
 	open "/Applications/$(APP)"
 	@echo "installed + launched /Applications/$(APP) — look for the waveform in your menu bar."
+	@echo "first launch asks where recordings go (default: $(REPO_ROOT)/recordings)."
 	@echo "first Start prompts for Microphone + System Audio; naming prompts for Calendar."
 	@echo "menu has a 'Launch at Login' toggle (no System Settings trip needed)."
 

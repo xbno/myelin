@@ -22,12 +22,14 @@ and `pace/DESIGN.md` hold the design decisions.
 ## Install
 
 ```bash
-git clone <this repo> ~/ml/myelin
-cd ~/ml/myelin/recorder && ./install.sh     # or: cd ~/ml/myelin/pace && ./install.sh
+git clone <this repo> ~/myelin          # anywhere you like
+cd ~/myelin/recorder && ./install.sh     # or: cd ~/myelin/pace && ./install.sh
 ```
 
-Both installers build the app, put it in `/Applications`, and launch it. The
-first recording asks for Microphone, System Audio and Calendar access.
+Both installers build the app, put it in `/Applications`, and launch it. On its
+first launch recorder asks where transcripts should go, prefilled with the
+checkout you installed from. The first recording asks for Microphone, System
+Audio and Calendar access.
 
 ### Command Line Tools
 
@@ -52,8 +54,11 @@ required for either app.
 
 ## Notes
 
-- Recordings are written to `~/ml/myelin/recordings` and are never
-  committed. Override with `$LIVE_RECORDER_DIR` or `--out`.
+- Recordings are written to the folder you pick on first launch (menu bar →
+  `Recordings folder…` to change it; missing folders are created). The choice
+  is one line in `~/.config/live-recorder/recordings-dir`, which the CLI and
+  the Claude skill read too. Transcripts are never committed. Override one run
+  with `$LIVE_RECORDER_DIR` or `--out`.
 - Both apps are ad-hoc signed, so macOS treats each rebuild as a new app and
   re-asks for permissions. Click Allow again after a rebuild.
 - If a menu bar icon does not appear, the bar is probably full: macOS hides the

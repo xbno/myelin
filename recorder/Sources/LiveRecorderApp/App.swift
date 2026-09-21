@@ -15,6 +15,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) {
             Task { @MainActor in RecorderSupervisor.shared.askClaudeAboutCall() }
         }
+        // First launch after an install: ask where transcripts should go, so
+        // nothing is hardcoded to one checkout. Deferred to the next run-loop
+        // pass — a modal put up mid-launch has no run loop to drain yet, the
+        // same starvation that broke the name dialog (see RecorderSupervisor).
+        if RecorderSupervisor.shared.recordingsDirUnset {
+            RunLoop.main.perform {
+                MainActor.assumeIsolated {
+                    RecorderSupervisor.shared.promptForRecordingsDir(firstRun: true)
+                }
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -43,6 +54,9 @@ struct LiveRecorderApp: App {
             Divider()
             Button("Ask Claude about this call  (⌥⌘C)") { supervisor.askClaudeAboutCall() }
             Button("Open transcripts folder") { supervisor.openTranscriptsFolder() }
+            Button("Recordings folder: \(supervisor.recordingsDirLabel)…") {
+                supervisor.promptForRecordingsDir()
+            }
             Button(supervisor.aecEnabled ? "✓ Echo cancellation (no headphones)" : "Echo cancellation (no headphones)") {
                 supervisor.aecEnabled.toggle()
             }

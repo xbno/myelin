@@ -18,23 +18,40 @@ import tempfile
 import time
 from pathlib import Path
 
-# Default under the user's project folder (not ~/Library, a macOS-protected
-# path sandboxed agents like Cowork can't mount). Override with $LIVE_RECORDER_DIR.
+# The folder the user picked in the menu-bar app, saved as one line of text
+# (not ~/Library, a macOS-protected path sandboxed agents like Cowork can't
+# mount). $LIVE_RECORDER_DIR overrides it for one run.
+CONFIG_FILE = Path.home() / ".config/live-recorder/recordings-dir"
+
+
+def configured_dir():
+    try:
+        path = CONFIG_FILE.read_text().strip()
+    except OSError:
+        return None
+    return Path(path).expanduser() if path else None
+
+
 def default_dir() -> Path:
     env = os.environ.get("LIVE_RECORDER_DIR")
     if env:
         return Path(env).expanduser()
     home = Path.home()
-    candidates = [home / "ml/myelin/recordings", home / "recordings"]
-    # Cowork/VM sessions: home is /sessions/<name>; folders attached to the
-    # session mount under ~/mnt (by basename — connecting the myelin repo
-    # gives ~/mnt/myelin/recordings) and are often also exposed at their
-    # original Mac /Users/<user>/ path. Cover all of these.
+    configured = configured_dir()
+    candidates = [c for c in (configured, home / "recordings") if c]
+    # Cowork/VM sessions: home is /sessions/<name>, so the config file above is
+    # not the Mac's. Folders attached to the session mount under ~/mnt (by
+    # basename — connecting the myelin repo gives ~/mnt/myelin/recordings) and
+    # are often also exposed at their original Mac /Users/<user>/ path, at
+    # whatever depth the repo was cloned to. Cover all of these. Kept narrow
+    # on purpose: a bare */recordings glob would happily match some unrelated
+    # folder and pull the wrong call.
     for pattern in (
         (home, "mnt/recordings"),
         (home, "mnt/*/recordings"),
         (home, "mnt/*/*/recordings"),
-        (Path("/Users"), "*/ml/myelin/recordings"),
+        (Path("/Users"), "*/myelin/recordings"),
+        (Path("/Users"), "*/*/myelin/recordings"),
     ):
         try:  # VM mounts can raise OSError mid-iteration; skip, don't crash
             candidates += sorted(pattern[0].glob(pattern[1]))
@@ -263,8 +280,9 @@ def main() -> int:
         print(f"no transcript found (searched {directory}); is the recorder running?")
         print(
             "if this is a sandboxed session: ATTACH the recordings folder to the "
-            "session first (folder-access tool, e.g. ~/ml/myelin) — it does "
-            "not exist inside the VM until attached. Do NOT retry without attaching."
+            "session first (folder-access tool; the Mac-side path is in "
+            "~/.config/live-recorder/recordings-dir) — it does not exist inside "
+            "the VM until attached. Do NOT retry without attaching."
         )
         return 1
 

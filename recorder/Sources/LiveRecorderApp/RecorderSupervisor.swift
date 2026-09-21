@@ -28,6 +28,8 @@ final class RecorderSupervisor: ObservableObject {
     /// doesn't animate in a MenuBarExtra label, so we cycle this on a timer and
     /// the label re-renders via `variableValue`.
     @Published private(set) var level: Double = 1.0
+    /// Where transcripts are written. Set from the menu; see the Paths section.
+    @Published private(set) var recordingsDir: URL
 
     private var process: Process?
     private var levelTimer: Timer?
@@ -44,6 +46,7 @@ final class RecorderSupervisor: ObservableObject {
     private var axProbePrompted = false
 
     init() {
+        recordingsDir = Self.resolvedRecordingsDir()
         launchAtLogin = (SMAppService.mainApp.status == .enabled)
     }
 
@@ -164,12 +167,89 @@ final class RecorderSupervisor: ObservableObject {
 
     // MARK: - Paths
 
-    var recordingsDir: URL {
+    /// One line, one absolute path: the folder every transcript goes in. The
+    /// menu writes it; the `recorder` CLI and the pull skill read the same
+    /// file, so all three agree without any of them hardcoding a checkout.
+    private static let configURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".config/live-recorder/recordings-dir")
+
+    /// $LIVE_RECORDER_DIR (one-off override) → the saved folder → the checkout
+    /// this app was built from (baked in by `make app`) → ~/recordings.
+    private static func resolvedRecordingsDir() -> URL {
         if let env = ProcessInfo.processInfo.environment["LIVE_RECORDER_DIR"], !env.isEmpty {
             return URL(fileURLWithPath: (env as NSString).expandingTildeInPath)
         }
+        if let saved = savedRecordingsDir() { return saved }
+        if let baked = Bundle.main.object(forInfoDictionaryKey: "LRDefaultRecordingsDir")
+            as? String, !baked.isEmpty {
+            return URL(fileURLWithPath: baked)
+        }
         return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("ml/myelin/recordings")
+            .appendingPathComponent("recordings")
+    }
+
+    private static func savedRecordingsDir() -> URL? {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8) else { return nil }
+        let path = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return path.isEmpty ? nil : URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+    }
+
+    /// Nothing chosen yet — the app asks once, at first launch.
+    var recordingsDirUnset: Bool {
+        let env = ProcessInfo.processInfo.environment["LIVE_RECORDER_DIR"] ?? ""
+        return env.isEmpty && Self.savedRecordingsDir() == nil
+    }
+
+    /// Last two path components, for the menu item.
+    var recordingsDirLabel: String {
+        let parts = recordingsDir.pathComponents.suffix(2)
+        return parts.joined(separator: "/")
+    }
+
+    /// Send transcripts to `dir` from now on: create it, remember it, and
+    /// update the menu. Returns a message to show the user, nil on success.
+    private func useRecordingsDir(_ dir: URL) -> String? {
+        let fm = FileManager.default
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try fm.createDirectory(
+                at: Self.configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try (dir.path + "\n").write(to: Self.configURL, atomically: true, encoding: .utf8)
+        } catch {
+            return error.localizedDescription
+        }
+        recordingsDir = dir
+        return nil
+    }
+
+    /// Type where transcripts go. Shown from the menu, and once at first launch
+    /// so a fresh install is pointed somewhere real before the first call. The
+    /// folder is created if it doesn't exist.
+    func promptForRecordingsDir(firstRun: Bool = false) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = firstRun ? "Where should recordings go?" : "Recordings folder"
+        alert.informativeText = firstRun
+            ? "Type a full path. It's created if it doesn't exist, and you can change it "
+                + "any time from the menu."
+            : "Type a full path. It's created if it doesn't exist. Takes effect on your "
+                + "next recording."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 340, height: 24))
+        field.stringValue = recordingsDir.path
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Use This Folder")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let typed = (field.stringValue.trimmingCharacters(in: .whitespaces) as NSString)
+            .expandingTildeInPath
+        guard typed.hasPrefix("/") else {
+            notify("That's not a full path", "Start it with / or ~ — e.g. ~/myelin/recordings.")
+            return
+        }
+        if let problem = useRecordingsDir(URL(fileURLWithPath: typed)) {
+            notify("Couldn't use that folder", problem)
+        }
     }
 
     /// Append handle to `<recordings>/.recorder.log`, truncated when it grows
@@ -336,6 +416,8 @@ final class RecorderSupervisor: ObservableObject {
     }
 
     func openTranscriptsFolder() {
+        try? FileManager.default.createDirectory(
+            at: recordingsDir, withIntermediateDirectories: true)
         NSWorkspace.shared.open(recordingsDir)
     }
 
