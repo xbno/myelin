@@ -282,7 +282,18 @@ final class RecorderSupervisor: ObservableObject {
     }
 
     func stop() {
-        process?.terminate()  // SIGTERM → recorder finalizes and exits
+        guard let p = process else { return }
+        p.terminate()  // SIGTERM → recorder finalizes and exits
+        // A wedged finalize used to trap the whole app: the child never exits,
+        // so terminationHandler never runs, isRecording stays true, and Start
+        // refuses forever (Sep 21 — CoreAudio teardown deadlock). Escalate
+        // rather than hang. Every transcript line is fsync'd as it is written,
+        // so a kill costs nothing that was already captured. Run-loop timer,
+        // not DispatchQueue.main: a modal run loop would starve a GCD block.
+        let killer = Timer(timeInterval: 5, repeats: false) { _ in
+            if p.isRunning { _ = kill(p.processIdentifier, SIGKILL) }
+        }
+        RunLoop.main.add(killer, forMode: .common)
     }
 
     func openLiveView() {
