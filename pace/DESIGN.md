@@ -36,7 +36,14 @@ Real size is about 94×20 pt in a 22 pt menu bar. Left to right:
      shrink the column to 7 pt.
    - Bar: 50 pt wide, 6 pt tall, blocks with 1 pt gaps, 1.5 pt corner radius,
      empty track at 28% ink.
-3. Optional **hours left** text after the bars, 13 pt: "74h". Off by default.
+3. **A second provider's column**, to the right of the first rather than
+   stacked — two accounts stacked would be five rows tall, more than the menu
+   bar gives. Codex's column is led by its own mark, 12×12 pt in menu bar ink,
+   an 8-lobe outline around a `>_` drawn from a 14×14 grid (see `CodexMark`).
+   With a mark in front of it the row says which window it is (Sess, Week),
+   not who it belongs to. Switching the mark off brings the provider-specific
+   labels (Codex, Cdx5h) back, since nothing else then separates the columns.
+4. Optional **hours left** text after the bars, 13 pt: "74h". Off by default.
 
 Rows:
 
@@ -74,12 +81,26 @@ draws at 50% opacity and the tooltip and popover say since when.
 
 ### Popover
 
-Opens on click, 360 pt wide, standard vibrancy. Row columns are name 48 pt,
-bar 142 pt, percent 40 pt, verdict 74 pt with 4 pt gaps, which fits "Session",
-"100%" and "−44 under" without wrapping. Top to bottom:
+Opens on click, standard vibrancy. 360 pt wide with one provider on, 384 with
+two — the provider gutter costs 20 pt and the rows are not squeezed to pay for
+it. Row columns are name 48 pt, bar 142 pt, percent 40 pt, verdict 74 pt with
+4 pt gaps, which fits "Session", "100%" and "−44 under" without wrapping.
+
+The popover must track its own content height. Left to itself an `NSPopover`
+keeps whatever it measured the first time it opened, and a second provider
+arriving then pushes the header off the top edge — the footer stays, the
+header vanishes. `NSHostingController.sizingOptions = .preferredContentSize`
+is what keeps them in step.
+
+Top to bottom:
 
 - Header: the Clawd mark, a chip with provider and plan ("Claude · Sample"),
   "updated 12 s ago" right-aligned, a gear that opens Settings.
+- One block per provider. With two on, each block sits in a second 14 pt
+  gutter outside the ones below, carrying the account's name, so the rails
+  read CLAUDE → USAGE and CODEX → USAGE; the plan ("Team") is a small line at
+  the top of the block. With one provider there is no such gutter and the
+  popover reads as it always did.
 - **USAGE** group, marked by the word running vertically in a 14 pt gutter.
   - "SESSION" line: `1h 21m elapsed · 3h 39m remaining · resets 6:31 pm`.
   - Session row: name, the 5-block bar at 150×9 pt with "1h", percent,
@@ -89,8 +110,13 @@ bar 142 pt, percent 40 pt, verdict 74 pt with 4 pt gaps, which fits "Session",
   - Week row: day letters (Mo Tu We Th Fr) above the blocks, "1d" in the first
     block, percent, verdict.
   - Caption: "one working day per block · tick = now, Tue 2:52 pm".
+  - Whatever is wrong with this provider, on one line under its rows —
+    "not logged in", "stale since 9:12 am". It lives with the rows it explains
+    rather than being repeated as an aggregate line under the header.
 - Hairline.
-- **MODELS** group, vertical word.
+- **MODELS** group, vertical word. Drawn only where the provider reports
+  per-model limits, so Codex grows no empty rail; alone, it stays even when
+  empty and says "no per-model limits on this plan".
   - "WEEKLY resets with Week".
   - One row per model, day letters above, single-color fill, no tick, percent,
     verdict text colored by pace.

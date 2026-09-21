@@ -28,10 +28,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         item.button?.action = #selector(togglePopover)
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentViewController = NSHostingController(rootView: PopoverView(
+        // Without `.preferredContentSize` the popover keeps whatever height it measured
+        // the first time it was shown. A second provider arriving makes the content taller
+        // than that, and the overflow is cut off the TOP — the header goes missing while
+        // the footer stays put. Tracking the content's own size is the whole fix.
+        let hosting = NSHostingController(rootView: PopoverView(
             store: store,
             openSettings: { [weak self] in self?.popover.performClose(nil); self?.openSettings() },
             close: { [weak self] in self?.popover.performClose(nil) }))
+        hosting.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hosting
         store.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in DispatchQueue.main.async { self?.render() } }

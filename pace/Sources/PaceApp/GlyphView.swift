@@ -2,7 +2,8 @@ import SwiftUI
 import PaceCore
 
 /// The menu bar glyph: the mark, then Sess / Week / model rows as 50×6 pt bars.
-/// About 94×20 pt with the mark and word labels.
+/// About 94×20 pt with the mark and word labels. A second provider's column is led by
+/// its own mark, so the rows there say which window they are, not who they belong to.
 struct GlyphView: View {
     let rows: [RowModel]
     let settings: AppSettings
@@ -13,6 +14,21 @@ struct GlyphView: View {
     var blinkOn: Bool = true
 
     private var labelWidth: CGFloat { settings.labelStyle == .words ? 22 : 7 }
+
+    /// With a mark leading the Codex column, "Codex" next to the Codex mark would say it
+    /// twice — so the row just names its window, as the Claude rows do. With marks switched
+    /// off the provider-specific labels come back, because then nothing else tells the two
+    /// columns apart.
+    private func label(_ row: RowModel) -> String {
+        let words = settings.labelStyle == .words
+        guard settings.showMark, row.providerID == "codex", row.style != .model else {
+            return words ? row.label : row.shortLabel
+        }
+        switch row.style {
+        case .session: return words ? "Sess" : "S"
+        default: return words ? "Week" : "W"
+        }
+    }
 
     /// Rows grouped by provider, in the order they arrive. Two providers stacked would be
     /// five rows tall — more than the menu bar gives us — so they sit side by side instead,
@@ -34,18 +50,25 @@ struct GlyphView: View {
                 ClawdMark(color: Color(hex: AppSettings.claudeOrange))
             }
             ForEach(columns, id: \.id) { column in
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(column.rows) { row in
-                        HStack(spacing: 2) {
-                            Text(settings.labelStyle == .words ? row.label : row.shortLabel)
-                                .font(.system(size: 6, weight: .semibold))
-                                .foregroundColor(ink.opacity(row.active ? 0.8 : 0.4))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .frame(width: labelWidth, height: 6, alignment: .leading)
-                            BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
-                                    solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
-                                    hatched: settings.barStyle == .hatched)
+                HStack(spacing: 3) {
+                    if settings.showMark, column.id == "codex" {
+                        // Sized to the Clawd mark opposite it. In the 6 pt label slot the
+                        // prompt inside it would be four pixels of mush; out here it reads.
+                        CodexMark(color: ink, unit: 0.85)
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(column.rows) { row in
+                            HStack(spacing: 2) {
+                                Text(label(row))
+                                    .font(.system(size: 6, weight: .semibold))
+                                    .foregroundColor(ink.opacity(row.active ? 0.8 : 0.4))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .frame(width: labelWidth, height: 6, alignment: .leading)
+                                BarView(blocks: row.blocks, fills: row.fills, tick: row.tick, unit: row.unit,
+                                        solid: row.solidColorHex.map { Color(hex: $0) }, palette: palette, blinkOn: blinkOn,
+                                        hatched: settings.barStyle == .hatched)
+                            }
                         }
                     }
                 }

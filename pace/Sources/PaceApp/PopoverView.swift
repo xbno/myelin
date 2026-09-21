@@ -1,9 +1,11 @@
 import SwiftUI
 import PaceCore
 
-/// What opens on click: USAGE (each provider's Session and Week) and MODELS groups with
-/// vertical words in the gutter. With one provider on, it reads exactly as it always did;
-/// with two, each block of rows is headed by the account it belongs to.
+/// What opens on click. With one provider on it reads exactly as it always did: a USAGE
+/// group and a MODELS group, each marked by a vertical word in the gutter. With two, a
+/// second gutter goes outside those and names the account, so the rails read
+/// CLAUDE → USAGE and CODEX → USAGE. A provider only grows a MODELS rail if it reports
+/// per-model limits, which Codex does not.
 struct PopoverView: View {
     @ObservedObject var store: UsageStore
     let openSettings: () -> Void
@@ -13,7 +15,9 @@ struct PopoverView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             content(now: context.date)
         }
-        .frame(width: 360)
+        // The provider gutter costs 20 pt, so the rows keep the column widths DESIGN.md
+        // fixed instead of being squeezed. Without that gutter the old width is right.
+        .frame(width: store.activeFeeds.count > 1 ? 384 : 360)
     }
 
     @ViewBuilder
@@ -21,43 +25,16 @@ struct PopoverView: View {
         let palette = Palette(settings: store.settings, ink: .primary)
         let feeds = store.activeFeeds
         let perFeed = feeds.map { (feed: $0, rows: RowBuilder.rows(for: $0, store: store)) }
-        let modelGroups = perFeed
-            .map { (feed: $0.feed, rows: $0.rows.filter { $0.style == .model }) }
-            .filter { !$0.rows.isEmpty }
         let many = feeds.count > 1
         VStack(alignment: .leading, spacing: 0) {
             header
-            if store.hasData, let status = store.statusLine {
-                Text(status).font(.system(size: 10)).foregroundColor(.secondary)
-                    .lineLimit(3).padding(.bottom, 6)
+            if feeds.isEmpty {
+                Text("no providers switched on — see Settings")
+                    .font(.system(size: 11)).foregroundColor(.secondary)
             }
-            GutterGroup("usage") {
-                if feeds.isEmpty {
-                    Text("no providers switched on — see Settings")
-                        .font(.system(size: 11)).foregroundColor(.secondary)
-                }
-                ForEach(perFeed, id: \.feed.id) { entry in
-                    usageSection(entry.feed, rows: entry.rows, now: now, palette: palette, named: many)
-                }
-            }
-            Divider().padding(.vertical, 6)
-            GutterGroup("models") {
-                HStack(spacing: 6) {
-                    Text("WEEKLY").font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
-                    Text("resets with Week").font(.system(size: 11)).foregroundColor(.secondary)
-                }
-                if modelGroups.isEmpty {
-                    Text("no per-model limits on this plan").font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 2)
-                }
-                // Grouped by account, like usage above, so each row keeps its own short name.
-                ForEach(modelGroups, id: \.feed.id) { entry in
-                    if many {
-                        Text(entry.feed.displayName.uppercased())
-                            .font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
-                            .padding(.top, 4)
-                    }
-                    ForEach(entry.rows) { m in meterRow(m, palette: palette, letters: true) }
-                }
+            ForEach(Array(perFeed.enumerated()), id: \.element.feed.id) { index, entry in
+                if index > 0 { Divider().padding(.vertical, 7) }
+                providerBlock(entry.feed, rows: entry.rows, now: now, palette: palette, named: many)
             }
             footer
         }
@@ -67,24 +44,51 @@ struct PopoverView: View {
         .font(.system(size: 12))
     }
 
-    /// One provider's Session and Week, headed by its name once a second provider is on.
+    /// One account: its USAGE rail, then a MODELS rail only where per-model limits exist.
+    /// `named` puts the whole block inside a second gutter carrying the provider's name —
+    /// which is why the block itself no longer repeats that name as a heading.
+    @ViewBuilder
+    private func providerBlock(_ feed: ProviderFeed, rows: [RowModel], now: Date,
+                               palette: Palette, named: Bool) -> some View {
+        let models = rows.filter { $0.style == .model }
+        let block = VStack(alignment: .leading, spacing: 0) {
+            if named, let plan = feed.snapshot?.plan {
+                Text(plan).font(.system(size: 10)).foregroundColor(.secondary).padding(.bottom, 3)
+            }
+            GutterGroup("usage") {
+                usageSection(feed, rows: rows, now: now, palette: palette)
+            }
+            // Alone, the MODELS rail stays even when empty, as it always has. Sharing the
+            // popover, it appears only where it means something, so Codex — which reports
+            // no per-model limits — doesn't grow an empty rail.
+            if !models.isEmpty || !named {
+                Divider().padding(.vertical, 6)
+                GutterGroup("models") {
+                    HStack(spacing: 6) {
+                        Text("WEEKLY").font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
+                        Text("resets with Week").font(.system(size: 11)).foregroundColor(.secondary)
+                    }
+                    if models.isEmpty {
+                        Text("no per-model limits on this plan").font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 2)
+                    }
+                    ForEach(models) { m in meterRow(m, palette: palette, letters: true) }
+                }
+            }
+        }
+        if named {
+            GutterGroup(feed.displayName) { block }
+        } else {
+            block
+        }
+    }
+
+    /// One provider's Session and Week, plus whatever is wrong with it.
     @ViewBuilder
     private func usageSection(_ feed: ProviderFeed, rows: [RowModel], now: Date,
-                              palette: Palette, named: Bool) -> some View {
+                              palette: Palette) -> some View {
         let session = rows.first { $0.style == .session }
         let week = rows.first { $0.style == .week }
         VStack(alignment: .leading, spacing: 0) {
-            if named {
-                HStack(spacing: 5) {
-                    Text(feed.displayName.uppercased())
-                        .font(.system(size: 10, weight: .bold)).kerning(0.6)
-                    if let plan = feed.snapshot?.plan {
-                        Text(plan).font(.system(size: 10))
-                    }
-                }
-                .foregroundColor(.secondary)
-                .padding(.top, 4)
-            }
             if let s = session {
                 sectionLine("Session", s, now: now)
                 meterRow(s, palette: palette, letters: false)
@@ -96,7 +100,14 @@ struct PopoverView: View {
                 caption("one working day per block · tick = now, \(Fmt.clock(now, now: now, calendar: store.calendar))",
                         legend: false, palette: palette)
             }
-            if feed.snapshot == nil { statusNote(feed) }
+            // Sits with the rows it explains. It used to be repeated verbatim as an
+            // aggregate line under the header, which is where the doubled "Codex CLI not
+            // found" came from; that line is gone, so this one also covers a provider
+            // that still has a stale snapshot on screen.
+            if let note = store.status(for: feed) {
+                Text(note).font(.system(size: 11)).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true).padding(.top, 4)
+            }
         }
     }
 
@@ -122,11 +133,6 @@ struct PopoverView: View {
             .help("Settings")
         }
         .padding(.bottom, 8)
-    }
-
-    private func statusNote(_ feed: ProviderFeed) -> some View {
-        Text(store.status(for: feed) ?? "Loading…")
-            .font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 4)
     }
 
     private func sectionLine(_ title: String, _ r: RowModel, now: Date) -> some View {

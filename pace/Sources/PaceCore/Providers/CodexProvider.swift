@@ -33,14 +33,18 @@ public struct CodexProvider: UsageProvider {
         URL(fileURLWithPath: NSString(string: "~/.codex/auth.json").expandingTildeInPath)
     }
 
-    let binary: URL?
+    /// Set only when a caller pins one (the tests do). Left nil, the CLI is looked up at
+     /// every fetch instead of once at launch — installing or re-linking codex while Pace
+     /// runs is then picked up on the next poll rather than needing a restart.
+    let pinnedBinary: URL?
+    var binary: URL? { pinnedBinary ?? Self.locate() }
     let authURL: URL
     let timeout: TimeInterval
 
-    public init(binary: URL? = CodexProvider.locate(),
+    public init(binary: URL? = nil,
                 authURL: URL = CodexProvider.defaultAuthURL,
                 timeout: TimeInterval = 25) {
-        self.binary = binary
+        self.pinnedBinary = binary
         self.authURL = authURL
         self.timeout = timeout
     }
