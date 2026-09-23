@@ -8,3 +8,5 @@ recordings/
 # Swift build products (also ignored per-package)
 .build/
 *.app/
+
+# Granolsa from old
