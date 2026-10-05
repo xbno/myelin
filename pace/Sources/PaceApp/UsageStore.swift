@@ -173,6 +173,15 @@ final class UsageStore: ObservableObject {
         return withData.allSatisfy { now.timeIntervalSince($0.fetchedAt) > Self.staleAfter }
     }
 
+    /// One provider's data is missing or old. Judged per provider, so a Codex feed that is
+    /// still answering cannot hide Claude rows that stopped updating days ago.
+    func isStale(_ feed: ProviderFeed) -> Bool {
+        guard let snapshot = feed.snapshot else { return true }
+        return now.timeIntervalSince(snapshot.fetchedAt) > Self.staleAfter
+    }
+
+    var staleProviderIDs: Set<String> { Set(activeFeeds.filter(isStale).map(\.id)) }
+
     var staleSince: Date? {
         guard isStale else { return nil }
         return activeFeeds.compactMap { $0.snapshot?.fetchedAt }.max()
@@ -198,10 +207,10 @@ final class UsageStore: ObservableObject {
         guard let error = feed.lastError else { return nil }
         let next = feed.nextFetchAt.map { "next try \(Fmt.clock($0, now: now, calendar: calendar))" } ?? ""
         let age = feed.snapshot.map { "showing data from \(Fmt.clock($0.fetchedAt, now: now, calendar: calendar))" } ?? "no data yet"
-        let signIn = feed.id == "codex" ? "run codex to sign in" : "open Claude Code"
+        let signIn = feed.id == "codex" ? "run codex to sign in" : "run claude auth login"
         switch error {
         case .rateLimited: return "usage API rate limited · \(age) · \(next)"
-        case .tokenExpired: return "token expired · \(age) · \(signIn) to refresh it"
+        case .tokenExpired: return "token expired, refresh failed · \(age) · \(signIn)"
         case .notLoggedIn: return "not logged in · \(signIn)"
         case .unavailable(let what): return "\(what) · install it or turn this provider off"
         case .http(let code): return "usage API error \(code) · \(age) · \(next)"
@@ -215,7 +224,7 @@ final class UsageStore: ObservableObject {
     /// The reset instant a provider's week bar is built around: that account's, or the next
     /// custom weekday and time, which is shared by every provider.
     func weekWindowEnd(for feed: ProviderFeed?) -> Date? {
-        if settings.weekStart.useAccount { return feed?.snapshot?.weekly?.resetsAt }
+        if settings.weekStart.useAccount { return feed?.snapshot?.asOf(now).weekly?.resetsAt }
         let c = settings.weekStart
         let components = DateComponents(hour: c.hour, minute: c.minute, weekday: c.weekday)
         return calendar.nextDate(after: now, matching: components, matchingPolicy: .nextTime)
@@ -230,7 +239,7 @@ final class UsageStore: ObservableObject {
     /// groups them by week; the Codex "Week" row is this same layout windowed to the week
     /// holding `now`, so both rows are views of one fetched number.
     func monthLayout(for feed: ProviderFeed?) -> WeekLayout? {
-        guard let meter = feed?.snapshot?.monthly,
+        guard let meter = feed?.snapshot?.asOf(now).monthly,
               let end = meter.resetsAt, let start = meter.windowStart else { return nil }
         return WeekLayout.make(windowStart: start, windowEnd: end,
                                schedule: settings.schedule, calendar: calendar)

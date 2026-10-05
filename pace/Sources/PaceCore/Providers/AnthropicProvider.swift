@@ -7,18 +7,34 @@ public struct AnthropicProvider: UsageProvider {
     public static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     static let legacyModelKeys = ["opus", "sonnet", "haiku", "fable"]
 
+    /// A token this close to expiry is refreshed first, so it cannot run out mid-request.
+    static let refreshMargin: TimeInterval = 60
+
     private let credentials: () throws -> ClaudeCodeCredentials
+    private let refresh: () async throws -> Void
     private let session: URLSession
 
     public init(credentials: @escaping () throws -> ClaudeCodeCredentials = KeychainReader.readClaudeCodeCredentials,
+                refresh: @escaping () async throws -> Void = { try await ClaudeCLI.refreshToken() },
                 session: URLSession = .shared) {
         self.credentials = credentials
+        self.refresh = refresh
         self.session = session
     }
 
-    public func fetch() async throws -> UsageSnapshot {
+    /// The keychain token, refreshed by Claude Code first when it has run out or nearly has.
+    /// Still expired after that means the refresh failed, and only a new login helps.
+    func freshCredentials(now: Date = Date()) async throws -> ClaudeCodeCredentials {
         let creds = try credentials()
-        if let expires = creds.expiresAt, expires < Date() { throw ProviderError.tokenExpired }
+        guard let expires = creds.expiresAt, expires < now.addingTimeInterval(Self.refreshMargin) else { return creds }
+        try? await refresh()
+        let again = try credentials()
+        if let expires = again.expiresAt, expires < now { throw ProviderError.tokenExpired }
+        return again
+    }
+
+    public func fetch() async throws -> UsageSnapshot {
+        let creds = try await freshCredentials()
         var request = URLRequest(url: Self.endpoint)
         request.timeoutInterval = 20
         request.setValue("Bearer \(creds.accessToken)", forHTTPHeaderField: "Authorization")

@@ -92,7 +92,7 @@ enum RowBuilder {
         let layout = store.weekLayout(for: feed)
         let weekBlocks = layout.map { $0.blocks.map { BlockSpec(share: $0.share, letter: dayLetters[$0.weekday - 1]) } } ?? fiveBlocks
         let weekTick = layout?.tick(at: now)
-        let snapshot = feed.snapshot
+        let snapshot = feed.snapshot?.asOf(now)
         var out: [RowModel] = []
 
         // Session: five one-hour blocks, tick at elapsed time. Only when the plan has one —

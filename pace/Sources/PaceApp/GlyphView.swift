@@ -9,7 +9,8 @@ struct GlyphView: View {
     let settings: AppSettings
     let ink: Color
     let hoursLeft: String?
-    let dimmed: Bool
+    /// Providers whose data is missing or old; their column draws at half strength.
+    let dimmed: Set<String>
     /// Off-phase of the over-budget blink; true keeps the red bar red.
     var blinkOn: Bool = true
 
@@ -75,6 +76,7 @@ struct GlyphView: View {
         HStack(spacing: 6) {
             if settings.showMark {
                 ClawdMark(color: Color(hex: AppSettings.claudeOrange))
+                    .opacity(dimmed.contains("anthropic") ? 0.5 : 1)
             }
             ForEach(columns, id: \.id) { column in
                 HStack(spacing: 3) {
@@ -97,6 +99,7 @@ struct GlyphView: View {
                         }
                     }
                 }
+                .opacity(dimmed.contains(column.id) ? 0.5 : 1)
             }
             if let hoursLeft {
                 Text(hoursLeft)
@@ -106,7 +109,6 @@ struct GlyphView: View {
             }
         }
         .padding(.horizontal, 2)
-        .opacity(dimmed ? 0.5 : 1)
         .fixedSize()
     }
 }

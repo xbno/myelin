@@ -80,7 +80,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             : nil
         updateBlink(hasOverage: rows.contains { !$0.locked && $0.fills.contains { $0.color == .over } })
         let view = GlyphView(rows: rows, settings: store.settings, ink: ink, hoursLeft: hours,
-                             dimmed: store.isStale, blinkOn: blinkOn)
+                             dimmed: store.staleProviderIDs, blinkOn: blinkOn)
         let renderer = ImageRenderer(content: view)
         renderer.scale = item.button?.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         guard let image = renderer.nsImage else { return }

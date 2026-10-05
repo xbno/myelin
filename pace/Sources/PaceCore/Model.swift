@@ -54,6 +54,21 @@ public struct UsageSnapshot: Equatable {
     public var weekly: Meter? { meters.first { $0.kind == .weekly } }
     public var monthly: Meter? { meters.first { $0.kind == .monthly } }
     public var models: [Meter] { meters.filter { $0.modelName != nil } }
+
+    /// The snapshot as it stands at `now`. A window that has reset since the fetch no longer
+    /// holds the fetched numbers, so its meter reads as a window not yet started: 0%, no
+    /// reset time. Without this an old snapshot draws last week's use against a tick pinned
+    /// at the end of a window that is already over.
+    public func asOf(_ now: Date) -> UsageSnapshot {
+        var copy = self
+        for i in copy.meters.indices {
+            guard let reset = copy.meters[i].resetsAt, reset <= now else { continue }
+            copy.meters[i].percent = 0
+            copy.meters[i].resetsAt = nil
+            copy.meters[i].locked = false
+        }
+        return copy
+    }
 }
 
 public enum ProviderError: Error, Equatable {

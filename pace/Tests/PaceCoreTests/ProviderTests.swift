@@ -77,9 +77,61 @@ import Testing
     @Test func fetchRejectsExpiredToken() async {
         let p = AnthropicProvider(credentials: {
             ClaudeCodeCredentials(accessToken: "x", expiresAt: Date(timeIntervalSinceNow: -60), subscriptionType: nil)
-        })
+        }, refresh: {})
         await #expect(throws: ProviderError.tokenExpired) {
             _ = try await p.fetch()
         }
+    }
+
+    // MARK: - Token refresh
+
+    final class Keychain {
+        var expiresAt: Date?
+        var refreshes = 0
+        init(_ expiresAt: Date?) { self.expiresAt = expiresAt }
+        func read() -> ClaudeCodeCredentials {
+            ClaudeCodeCredentials(accessToken: "t", expiresAt: expiresAt, subscriptionType: nil)
+        }
+    }
+
+    @Test func validTokenIsNotRefreshed() async throws {
+        let now = Date()
+        let kc = Keychain(now.addingTimeInterval(3600))
+        let p = AnthropicProvider(credentials: kc.read, refresh: { kc.refreshes += 1 })
+        _ = try await p.freshCredentials(now: now)
+        #expect(kc.refreshes == 0)
+    }
+
+    @Test func expiredTokenIsRefreshedThenReadBack() async throws {
+        let now = Date()
+        let kc = Keychain(now.addingTimeInterval(-86400))
+        let p = AnthropicProvider(credentials: kc.read, refresh: {
+            kc.refreshes += 1
+            kc.expiresAt = now.addingTimeInterval(8 * 3600)   // Claude Code wrote a new one
+        })
+        let creds = try await p.freshCredentials(now: now)
+        #expect(kc.refreshes == 1)
+        #expect(creds.expiresAt == now.addingTimeInterval(8 * 3600))
+    }
+
+    @Test func tokenAboutToExpireIsRefreshed() async throws {
+        let now = Date()
+        let kc = Keychain(now.addingTimeInterval(30))
+        let p = AnthropicProvider(credentials: kc.read, refresh: { kc.refreshes += 1 })
+        let creds = try await p.freshCredentials(now: now)
+        #expect(kc.refreshes == 1)
+        #expect(creds.expiresAt == now.addingTimeInterval(30))   // refresh did nothing; still usable
+    }
+
+    @Test func failedRefreshReadsAsExpired() async {
+        let now = Date()
+        let kc = Keychain(now.addingTimeInterval(-60))
+        let p = AnthropicProvider(credentials: kc.read, refresh: { throw ProviderError.tokenExpired })
+        await #expect(throws: ProviderError.tokenExpired) { try await p.freshCredentials(now: now) }
+    }
+
+    @Test func refreshDropsTheTokensThatBypassTheKeychain() {
+        let env = ClaudeCLI.environment(from: ["CLAUDE_CODE_OAUTH_TOKEN": "x", "ANTHROPIC_API_KEY": "y", "HOME": "/h"])
+        #expect(env == ["HOME": "/h"])
     }
 }
