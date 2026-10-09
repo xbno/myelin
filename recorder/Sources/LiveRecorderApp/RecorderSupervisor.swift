@@ -41,6 +41,9 @@ final class RecorderSupervisor: ObservableObject {
     /// "forgot to stop after the call" without cutting off a long active meeting
     /// (an inactivity timeout, not a hard cap).
     private let idleAutoStop: TimeInterval = 15 * 60
+    /// How long a stop prompt (idle, or ⌥⌘R) waits for an answer.
+    private let stopPromptGrace: TimeInterval = 60
+    private var stopPromptUp = false
     private var axTick = 0
     private var axProbeRan = false
     private var axProbePrompted = false
@@ -50,7 +53,7 @@ final class RecorderSupervisor: ObservableObject {
         launchAtLogin = (SMAppService.mainApp.status == .enabled)
     }
 
-    func toggle() { isRecording ? stop() : start() }
+    func toggle() { isRecording ? promptStopFromHotkey() : start() }
 
     /// True while the name dialog is up. A second ⌥⌘R during the prompt used
     /// to stack a second modal session on top of the first — the visible
@@ -83,17 +86,91 @@ final class RecorderSupervisor: ObservableObject {
             let s = Int(Date().timeIntervalSince(start))
             elapsed = String(format: "%d:%02d", s / 60, s % 60)
         }
-        if let url = transcriptURL, let text = try? String(contentsOf: url, encoding: .utf8) {
-            lineCount = text.split(separator: "\n").count
-        }
+        if let n = transcriptLineCount() { lineCount = n }
         if lineCount > lastLineCount {  // new speech → still active
             lastLineCount = lineCount
             lastActivity = Date()
-        } else if let last = lastActivity, Date().timeIntervalSince(last) >= idleAutoStop {
-            stop()  // silent for 15 min — the call's over and Stop was forgotten
+        } else if !stopPromptUp, let last = lastActivity,
+                  Date().timeIntervalSince(last) >= idleAutoStop {
+            promptStillRecording()  // quiet for 15 min — ask before assuming the call's over
         }
         axTick += 1
         if axTick % 45 == 0 { maybeRunAXProbe() }
+    }
+
+    /// Lines in the live transcript, nil when it can't be read.
+    private func transcriptLineCount() -> Int? {
+        guard let url = transcriptURL,
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return text.split(separator: "\n").count
+    }
+
+    /// Quiet for `idleAutoStop`: ask before stopping. A listen-only call can go
+    /// quiet for a long stretch (screen share, a pause), and stopping outright
+    /// lost the rest of it. No answer stops; new transcript lines while the
+    /// prompt is up mean the call is still going, so they count as Keep.
+    private func promptStillRecording() {
+        confirmStop(
+            title: "Still recording \u{201C}\(meetingName)\u{201D}?",
+            detail: "No new speech for \(Int(idleAutoStop / 60)) minutes. "
+                + "Recording stops in \(Int(stopPromptGrace)) seconds unless you keep it.",
+            timeoutStops: true, growthKeeps: true)
+    }
+
+    /// ⌥⌘R while recording: ask, because the hotkey fires from any app and a
+    /// stray press used to end the recording with nothing on screen. Enter
+    /// keeps, no answer keeps; a deliberate stop is one click.
+    private func promptStopFromHotkey() {
+        confirmStop(
+            title: "Stop recording \u{201C}\(meetingName)\u{201D}?",
+            detail: "⌥⌘R was pressed. Recording continues in \(Int(stopPromptGrace)) seconds "
+                + "unless you stop it.",
+            timeoutStops: false, growthKeeps: false)
+    }
+
+    /// One dialog for both: Keep Recording (Enter) resets the idle clock, Stop
+    /// stops. No answer within `stopPromptGrace` resolves per `timeoutStops`;
+    /// with `growthKeeps`, new transcript lines while it is up count as Keep.
+    private func confirmStop(title: String, detail: String, timeoutStops: Bool, growthKeeps: Bool) {
+        guard !stopPromptUp else { return }
+        stopPromptUp = true
+        NSApp.activate(ignoringOtherApps: true)
+        // Host the modal from a run-loop callout, not from a Task — see start()
+        // for why a Task-hosted runModal misbehaves.
+        RunLoop.main.perform {
+            MainActor.assumeIsolated {
+                guard self.isRecording else { self.stopPromptUp = false; return }
+                let alert = NSAlert()
+                alert.messageText = title
+                alert.informativeText = detail
+                alert.addButton(withTitle: "Keep Recording")
+                alert.addButton(withTitle: "Stop")
+                let deadline = Date().addingTimeInterval(self.stopPromptGrace)
+                let linesAtPrompt = self.lineCount
+                let onTimeout: NSApplication.ModalResponse =
+                    timeoutStops ? .alertSecondButtonReturn : .alertFirstButtonReturn
+                // .common so it fires inside the modal session (as stop()'s killer
+                // does); stopModal ends runModal with the given button's code.
+                let watch = Timer(timeInterval: 1, repeats: true) { _ in
+                    MainActor.assumeIsolated {
+                        if growthKeeps, (self.transcriptLineCount() ?? linesAtPrompt) > linesAtPrompt {
+                            NSApp.stopModal(withCode: .alertFirstButtonReturn)  // speech resumed
+                        } else if Date() >= deadline {
+                            NSApp.stopModal(withCode: onTimeout)  // nobody answered
+                        }
+                    }
+                }
+                RunLoop.main.add(watch, forMode: .common)
+                let response = alert.runModal()
+                watch.invalidate()
+                self.stopPromptUp = false
+                if response == .alertFirstButtonReturn {
+                    self.lastActivity = Date()
+                } else {
+                    self.stop()
+                }
+            }
+        }
     }
 
     /// One-time R&D capture for native-Teams speaker naming: while a recording
@@ -363,6 +440,7 @@ final class RecorderSupervisor: ObservableObject {
 
     func stop() {
         guard let p = process else { return }
+        lastActivity = Date()  // no idle prompt while the child finalizes
         p.terminate()  // SIGTERM → recorder finalizes and exits
         // A wedged finalize used to trap the whole app: the child never exits,
         // so terminationHandler never runs, isRecording stays true, and Start
