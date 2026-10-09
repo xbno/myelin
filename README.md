@@ -3,11 +3,11 @@
 Small Mac tools I built for myself: two menu bar apps and the Claude skill that
 goes with one of them. Everything here runs locally.
 
-| Where | What |
-|-------|------|
-| [`recorder/`](recorder/) | **live-recorder** — on-device meeting transcription (menu bar app + CLI). Writes an append-only JSONL transcript as people speak, so anything can read the call *while it is still happening*. `cd recorder && ./install.sh` |
-| [`pace/`](pace/) | **Pace** — a menu bar glyph showing whether you are burning your Claude and Codex usage budgets fast enough to hit 100% exactly when each limit resets. `cd pace && ./install.sh` |
-| [`skills/live-recorder/`](skills/live-recorder/) | Claude skill that streams the active recording into a Claude session, pulling only the new lines each time. |
+| Where | Menu bar | What |
+|-------|----------|------|
+| [`recorder/`](recorder/) | ![live-recorder in the menu bar](recorder/docs/menu-bar-icon.png) | **live-recorder** — on-device meeting transcription (menu bar app + CLI). Writes an append-only JSONL transcript as people speak, so anything can read the call *while it is still happening*. `cd recorder && ./install.sh` |
+| [`pace/`](pace/) | ![Pace in the menu bar](pace/docs/menu-bar.png) | **Pace** — a menu bar glyph showing whether you are burning your Claude and Codex usage budgets fast enough to hit 100% exactly when each limit resets. `cd pace && ./install.sh` |
+| [`skills/live-recorder/`](skills/live-recorder/) | | Claude skill that streams the active recording into a Claude session, pulling only the new lines each time. |
 
 Each folder has its own README with the details; `pace/DESIGN.md` records the
 Pace design decisions.

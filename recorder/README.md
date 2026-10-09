@@ -10,6 +10,8 @@ on-device processing means no bot joins the call and no audio leaves your Mac.
 **How:** mic + system audio as separate streams (your side vs theirs for
 free), live ASR (Apple SpeechAnalyzer, macOS 26+), live speaker labeling.
 
+![live-recorder in the menu bar](docs/menu-bar-icon.png)
+
 ## Install the app
 
 ```bash

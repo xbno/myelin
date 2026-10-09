@@ -5,7 +5,7 @@ the right speed to hit 100% exactly when the limit resets. Three bars, one per
 limit your account has, each block a unit of time, colored by how far ahead or
 behind pace you are.
 
-![Pace in the menu bar: the mark, then Sess, Week and Fable bars](docs/menu-bar.png)
+![Pace in the menu bar: the mark, then Sess, Week and Fable bars for Claude, and Week and Month for Codex](docs/menu-bar.png)
 
 Design and decisions: [DESIGN.md](DESIGN.md).
 
