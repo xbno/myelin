@@ -143,8 +143,25 @@ final class RecorderSupervisor: ObservableObject {
                 let alert = NSAlert()
                 alert.messageText = title
                 alert.informativeText = detail
-                alert.addButton(withTitle: "Keep Recording")
-                alert.addButton(withTitle: "Stop")
+                let buttons = [alert.addButton(withTitle: "Keep Recording"),
+                               alert.addButton(withTitle: "Stop")]
+                // Tab moves the Enter target (the blue button) to the other
+                // button, so Tab, Enter stops without the mouse. Alert buttons
+                // aren't in the Tab loop unless Full Keyboard Access is on, and
+                // even then Enter always fires the default button. Esc is Keep.
+                let keys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                    guard event.window === alert.window else { return event }
+                    switch event.keyCode {
+                    case 48:  // Tab
+                        let other = alert.window.defaultButtonCell === buttons[0].cell ? buttons[1] : buttons[0]
+                        alert.window.defaultButtonCell = other.cell as? NSButtonCell
+                    case 53:  // Esc
+                        buttons[0].performClick(nil)
+                    default:
+                        return event
+                    }
+                    return nil
+                }
                 let deadline = Date().addingTimeInterval(self.stopPromptGrace)
                 let linesAtPrompt = self.lineCount
                 let onTimeout: NSApplication.ModalResponse =
@@ -163,6 +180,7 @@ final class RecorderSupervisor: ObservableObject {
                 RunLoop.main.add(watch, forMode: .common)
                 let response = alert.runModal()
                 watch.invalidate()
+                if let keys { NSEvent.removeMonitor(keys) }
                 self.stopPromptUp = false
                 if response == .alertFirstButtonReturn {
                     self.lastActivity = Date()
