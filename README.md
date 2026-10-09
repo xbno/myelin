@@ -9,8 +9,8 @@ goes with one of them. Everything here runs locally.
 | [`pace/`](pace/) | **Pace** — a menu bar glyph showing whether you are burning your Claude and Codex usage budgets fast enough to hit 100% exactly when each limit resets. `cd pace && ./install.sh` |
 | [`skills/live-recorder/`](skills/live-recorder/) | Claude skill that streams the active recording into a Claude session, pulling only the new lines each time. |
 
-Each folder has its own README with the details; `recorder/PRODUCTIZATION.md`
-and `pace/DESIGN.md` hold the design decisions.
+Each folder has its own README with the details; `pace/DESIGN.md` records the
+Pace design decisions.
 
 ## Requirements
 

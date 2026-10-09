@@ -22,7 +22,7 @@ struct DebugProvider: UsageProvider {
         let sessionReset = Date().addingTimeInterval(3 * 3600 + 39 * 60)
         switch state {
         case "nosession":
-            return UsageSnapshot(fetchedAt: Date(), plan: "Team", meters: [
+            return UsageSnapshot(fetchedAt: Date(), plan: "Sample", meters: [
                 Meter(kind: .session, percent: 0, resetsAt: nil, windowLength: five),
                 Meter(kind: .weekly, percent: 46, resetsAt: reset, windowLength: week),
                 Meter(kind: .weeklyModel(name: "Fable"), percent: 28, resetsAt: reset, windowLength: week),
@@ -38,18 +38,18 @@ struct DebugProvider: UsageProvider {
             let endsWednesday = calendar.nextDate(
                 after: Date(), matching: DateComponents(hour: 20, minute: 0, weekday: 4),
                 matchingPolicy: .nextTime)!
-            return UsageSnapshot(fetchedAt: Date(), plan: "Business", meters: [
+            return UsageSnapshot(fetchedAt: Date(), plan: "Sample", meters: [
                 Meter(kind: .monthly, percent: 25, resetsAt: endsWednesday,
                       windowLength: 22 * 86400, note: "250 of 1000 credits"),
             ])
         case "locked":
-            return UsageSnapshot(fetchedAt: Date(), plan: "Team", meters: [
+            return UsageSnapshot(fetchedAt: Date(), plan: "Sample", meters: [
                 Meter(kind: .session, percent: 41, resetsAt: sessionReset, windowLength: five),
                 Meter(kind: .weekly, percent: 100, resetsAt: reset, windowLength: week, locked: true),
                 Meter(kind: .weeklyModel(name: "Fable"), percent: 28, resetsAt: reset, windowLength: week),
             ])
         default: // "sample": the mockup numbers
-            return UsageSnapshot(fetchedAt: Date(), plan: "Team", meters: [
+            return UsageSnapshot(fetchedAt: Date(), plan: "Sample", meters: [
                 Meter(kind: .session, percent: 41, resetsAt: sessionReset, windowLength: five),
                 Meter(kind: .weekly, percent: 46, resetsAt: reset, windowLength: week),
                 Meter(kind: .weeklyModel(name: "Fable"), percent: 28, resetsAt: reset, windowLength: week),

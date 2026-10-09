@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot installer for users. From a repo checkout:
+# One-shot installer. From a repo checkout:
 #   cd recorder && ./install.sh
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"

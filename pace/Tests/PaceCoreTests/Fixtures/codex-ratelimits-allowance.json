@@ -5,7 +5,12 @@
     "primary": null,
     "secondary": null,
     "credits": {"hasCredits": true, "unlimited": false, "balance": null},
-    "individualLimit": {"limit": "1000", "used": "250", "remainingPercent": 75, "resetsAt": 1790812800},
+    "individualLimit": {
+      "limit": "1000",
+      "used": "250",
+      "remainingPercent": 75,
+      "resetsAt": 1790812800
+    },
     "spendControlReached": false,
     "planType": "business",
     "rateLimitReachedType": null
@@ -16,7 +21,12 @@
       "primary": null,
       "secondary": null,
       "credits": {"hasCredits": true, "unlimited": false, "balance": null},
-      "individualLimit": {"limit": "1000", "used": "250", "remainingPercent": 75, "resetsAt": 1790812800},
+      "individualLimit": {
+        "limit": "1000",
+        "used": "250",
+        "remainingPercent": 75,
+        "resetsAt": 1790812800
+      },
       "spendControlReached": false,
       "planType": "business",
       "rateLimitReachedType": null

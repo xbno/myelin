@@ -56,7 +56,6 @@ Hovering shows elapsed, remaining and reset time per row. Clicking opens the
 popover with the same bars at a readable size, day letters, percentages and a
 verdict per row: "on pace", "+9 over" or "−9 under".
 
-
 ## Settings
 
 The gear in the popover opens them. Everything is stored in UserDefaults.

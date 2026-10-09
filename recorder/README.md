@@ -1,14 +1,11 @@
 # live-recorder
 
-reference recorder-style meeting transcription, **fully on-device**, built so the
-transcript can be **streamed mid-call** to other tools.
+Meeting transcription, **fully on-device**, built so the transcript can be
+**streamed mid-call** to other tools.
 
-**Why:** reference recorder has no live API — transcripts only exist after the call, so
-mid-call Q&A with Claude meant endless copy-pasting of the same context. This
-writes an append-only JSONL transcript as people speak; anything can tail it —
-the Claude skill pulls just the new lines each time, local analysis tool can ride
-the same stream. On-device also means no bot in your call, no audio leaving
-your Mac, no subscription.
+**Why:** an append-only JSONL transcript lets local tools work with a call while
+it is still happening. The Claude skill pulls only the new lines each time, and
+on-device processing means no bot joins the call and no audio leaves your Mac.
 
 **How:** mic + system audio as separate streams (your side vs theirs for
 free), live ASR (Apple SpeechAnalyzer, macOS 26+), live speaker labeling.

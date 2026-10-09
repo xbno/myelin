@@ -112,7 +112,7 @@ Top to bottom:
   "updated 12 s ago" right-aligned, a gear that opens Settings.
 - One block per provider. With two on, each block sits in a second 14 pt
   gutter outside the ones below, carrying the account's name, so the rails
-  read CLAUDE → USAGE and CODEX → USAGE; the plan ("Team") is a small line at
+  read CLAUDE → USAGE and CODEX → USAGE; the plan ("Sample") is a small line at
   the top of the block. With one provider there is no such gutter and the
   popover reads as it always did.
 - **USAGE** group, marked by the word running vertically in a 14 pt gutter.
@@ -264,7 +264,7 @@ The UI never sees provider-specific fields.
 4. On HTTP 401 or a missing token, throw; the app enters the stale or
    not-logged-in state. The app never calls the token refresh endpoint.
 
-A synthetic response from 2026-09-08 is checked in as a test fixture.
+A synthetic response is checked in as a test fixture.
 
 ### Codex provider
 
@@ -303,8 +303,7 @@ Why not HTTP: `https://chatgpt.com/backend-api/...` answers a plain URLSession
 request with a bot-check HTML 403. The CLI is the supported interface.
 
 Synthetic responses are checked in as `Fixtures/codex-ratelimits-windowed.json`
-(windowed plan) and `Fixtures/codex-ratelimits-allowance.json` (allowance
-plan, account id scrubbed).
+(windowed plan) and `Fixtures/codex-ratelimits-allowance.json` (allowance plan).
 
 ### Polling
 

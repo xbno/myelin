@@ -1,11 +1,11 @@
 # meet-tap
 
 Chrome extension that reports the meeting's **active speaker** to the local
-live-recorder — the same method reference recorder's "Companion" extension uses. It reads
-who's currently talking straight from the meeting page's DOM (no captions
-required) and streams the name to the recorder, which shows real names instead
-of `S1`/`S2` for the rest of that call. Nothing is kept afterwards: the recorder
-stores no voice data, so the next call starts anonymous again.
+live-recorder. It reads who's currently talking straight from the meeting
+page's DOM (no captions required) and streams the name to the recorder, which
+shows real names instead of `S1`/`S2` for the rest of that call. Nothing is kept
+afterwards: the recorder stores no voice data, so the next call starts anonymous
+again.
 
 Everything stays on your machine: the extension only talks to
 `http://127.0.0.1:8737`.
@@ -34,8 +34,8 @@ occasionally. To find the current one:
 5. Put it at the top of `SPEAKING_SELECTORS` in `content.js`, reload the
    extension.
 
-(Same maintenance path reference recorder and other tools use — the DOM is the only place
-this signal exists; it is deliberately not in the accessibility tree.)
+The DOM is the only place this signal exists; it is deliberately not in the
+accessibility tree.
 
 ## When it breaks
 

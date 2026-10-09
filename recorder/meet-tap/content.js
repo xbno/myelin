@@ -1,5 +1,5 @@
 // meet-tap: report the meeting platform's ACTIVE SPEAKER to the local
-// live-recorder — the same method reference recorder's "Companion" extension uses.
+// live-recorder.
 //
 // Primary signal: the platform's own active-speaker indicator in the DOM
 // (the tile that's currently talking). No captions required. Captions are a

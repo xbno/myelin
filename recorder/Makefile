@@ -21,7 +21,7 @@ install: build
 	@case ":$$PATH:" in *:"$(BINDIR)":*) ;; *) echo "NOTE: add $(BINDIR) to your PATH";; esac
 
 # Zip the skill for sharing (upload at claude.ai → Settings → Capabilities →
-# Skills, or hand to a user) and sync it into the local Claude Code CLI
+# Skills, or copy to another installation) and sync it into the local Claude Code CLI
 # skills dir. Zip root must be the skill folder itself. The CLI sync only
 # touches SKILL.md + scripts/*.py — never state/ (per-session cursors) or
 # __pycache__, so it doesn't clobber local pull state.

@@ -8,7 +8,7 @@ import Testing
         return try Data(contentsOf: url)
     }
 
-    /// The synthetic payload of a plan that reports one weekly window and no session window.
+    /// A synthetic payload with one weekly window and no session window.
     @Test func parsesWindowedPayload() throws {
         let snap = try CodexProvider.parse(try fixture(), fetchedAt: Date(timeIntervalSince1970: 0))
         #expect(snap.plan == "Pro")
