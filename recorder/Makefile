@@ -9,10 +9,19 @@ APP := LiveRecorder.app
 # ~/.config/live-recorder/recordings-dir and only the user writes it.
 REPO_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null || (cd .. && pwd))
 
-.PHONY: build install skill-zip app app-install uninstall clean
+# Command Line Tools ship the test frameworks outside the default search path
+# and without their Foundation cross-import overlay (same flags as pace/).
+CLT_FW := /Library/Developer/CommandLineTools/Library/Developer/Frameworks
+TESTFLAGS := $(shell [ -d $(CLT_FW) ] && echo "-Xswiftc -F$(CLT_FW) -Xswiftc -Xfrontend -Xswiftc -disable-cross-import-overlays -Xlinker -F$(CLT_FW) -Xlinker -rpath -Xlinker $(CLT_FW)")
+
+.PHONY: build test install skill-zip app app-install uninstall clean
 
 build:
 	swift build -c release
+
+test:
+	swift test $(TESTFLAGS)
+	node --test meet-tap/test/*.test.js
 
 install: build
 	mkdir -p $(BINDIR)

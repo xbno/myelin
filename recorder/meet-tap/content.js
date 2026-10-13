@@ -80,8 +80,15 @@ function meetTileSpeaking(tile) {
 }
 
 function readMeetActiveSpeaker() {
-  const speaking = meetTiles().filter(meetTileSpeaking).map(meetTileName).filter(Boolean);
-  return speaking.length ? { names: speaking } : null;
+  // Never the self tile: the local user's voice is on the mic channel, and a
+  // lit self tile while waiting alone once named the host after the user.
+  const remote = meetTiles().filter((t) => !t.hasAttribute('data-self-name'));
+  const speaking = remote.filter(meetTileSpeaking);
+  // Lit on every remote tile = a stale, over-broad selector, not a room full
+  // of simultaneous talkers. Say nothing rather than something wrong.
+  if (!speaking.length || (remote.length > 1 && speaking.length === remote.length)) return null;
+  const names = speaking.map(meetTileName).filter(Boolean);
+  return names.length ? { names } : null;
 }
 
 // DEBUG: discover the speaking-indicator class by watching which class tokens

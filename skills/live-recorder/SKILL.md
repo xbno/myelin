@@ -149,8 +149,11 @@ context rather than accumulating.
 - Everything is local: capture, ASR, diarization, transcript. Nothing leaves
   the machine.
 - Mic lines are the user ("Me"); system-audio lines are everyone else,
-  diarized into S1/S2/… — or real names for voices enrolled via samples in
-  `speakers/` inside the recordings dir (e.g. `Alice.wav`).
+  diarized into S1/S2/… for that call only. A real name appears only when the
+  meet-tap browser extension reports the meeting platform's active speaker.
+  Nothing about anyone's voice is stored, so there is nothing to enroll or
+  re-record; a wrong real name is a bad platform hint — check `.recorder.log`
+  for `[hints]` lines.
 - If the user asks you to take notes / research topics live, poll, then act
   on the new lines each cycle; don't re-summarize what you already covered.
 - Cursor is per-session per-call (keyed by `CLAUDE_CODE_SESSION_ID`): two

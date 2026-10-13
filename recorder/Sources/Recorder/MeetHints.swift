@@ -19,6 +19,13 @@ final class MeetHints {
     private var intervals: [Interval] = []
     private var listener: NWListener?
 
+    /// The local user's display name. Hints naming them are dropped: their
+    /// voice arrives on the mic channel, so on the system channel such a hint
+    /// can only mislabel someone else. (Oct 13 2026: Meet's self tile read as
+    /// "speaking" while the user waited alone in the call, and the host's
+    /// voice slot carried the user's name for the whole meeting.)
+    var localUserName: String?
+
     /// When set, GET /transcript serves this file (JSONL) — lets a local page
     /// (fake-meet test rig, future live view) render the transcript live.
     var transcriptPath: String?
@@ -55,8 +62,7 @@ final class MeetHints {
 
     // MARK: - Hint store
 
-    private func record(names: [String]) {
-        let now = Date()
+    func record(names: [String], at now: Date = Date()) {
         lock.lock()
         defer { lock.unlock() }
         if !intervals.isEmpty, intervals[intervals.count - 1].end == nil {
@@ -64,8 +70,9 @@ final class MeetHints {
         }
         let cleaned = names.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && $0.count <= 60 }
-        if !cleaned.isEmpty {
-            intervals.append(Interval(start: now, end: nil, names: cleaned))
+        let remote = cleaned.filter { !isLocalUser($0) }
+        if !remote.isEmpty {
+            intervals.append(Interval(start: now, end: nil, names: remote))
         }
         // Keep memory bounded on long calls.
         if intervals.count > 20_000 {
@@ -73,8 +80,14 @@ final class MeetHints {
         }
         Console.status(
             "[hints] speaker update → "
-            + (cleaned.isEmpty ? "silence" : cleaned.joined(separator: "+"))
+            + (remote.isEmpty ? "silence" : remote.joined(separator: "+"))
+            + (remote.count < cleaned.count ? " (ignored local user)" : "")
             + " (\(intervals.count) intervals)")
+    }
+
+    private func isLocalUser(_ name: String) -> Bool {
+        guard let localUserName else { return false }
+        return name.caseInsensitiveCompare(localUserName) == .orderedSame
     }
 
     /// Dominant hinted name over the wall-clock window, or nil when there is

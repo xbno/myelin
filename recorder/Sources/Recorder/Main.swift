@@ -141,8 +141,11 @@ struct Main {
                     let h = MeetHints()
                     h.transcriptPath = outPath
                     h.partials = partialStore
+                    h.localUserName = NSFullUserName()
                     do {
                         try h.start(port: meetPort)
+                        Console.status(
+                            "hints naming \"\(NSFullUserName())\" (this Mac's user) are ignored — that voice is on the mic channel")
                         hints = h
                     } catch {
                         Console.error("meet-tap listener unavailable: \(error)")

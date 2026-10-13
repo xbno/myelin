@@ -33,5 +33,11 @@ let package = Package(
             path: "Sources/LiveRecorderApp",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .testTarget(
+            name: "RecorderTests",
+            dependencies: ["recorder"],
+            path: "Tests/RecorderTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )
