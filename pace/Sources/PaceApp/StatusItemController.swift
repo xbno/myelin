@@ -19,6 +19,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     init(store: UsageStore) {
         self.store = store
+        // A first launch has no saved position, and macOS puts such an item leftmost —
+        // behind the notch once the bar fills. Start it just left of the system items
+        // (Wi-Fi, battery, Control Center sit within ~390 pt of the screen's right edge,
+        // which is what this value measures); a ⌘-drag overrides it.
+        let positionKey = "NSStatusItem Preferred Position pace"
+        if UserDefaults.standard.object(forKey: positionKey) == nil {
+            UserDefaults.standard.set(395.0, forKey: positionKey)
+        }
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         // Without an autosave name macOS forgets where the item sits, so every relaunch
         // re-places it — and a wide neighbour appearing can shove it behind the notch.

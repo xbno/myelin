@@ -41,6 +41,18 @@ struct LiveRecorderApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var supervisor = RecorderSupervisor.shared
 
+    init() {
+        // A relaunched item with no saved position lands leftmost, where the
+        // notch hides it once the bar fills. Start it just left of the system
+        // items (Wi-Fi, battery, Control Center sit within ~390 pt of the
+        // screen's right edge, which is what this value measures; MenuBarExtra's
+        // autosave name is Item-0). A ⌘-drag saves over this.
+        let positionKey = "NSStatusItem Preferred Position Item-0"
+        if UserDefaults.standard.object(forKey: positionKey) == nil {
+            UserDefaults.standard.set(405.0, forKey: positionKey)
+        }
+    }
+
     var body: some Scene {
         MenuBarExtra {
             if supervisor.isRecording {
@@ -73,10 +85,8 @@ struct LiveRecorderApp: App {
             // mode added nothing. The Sep 16 "icon vanished after a rebuild"
             // was NOT a rendering bug: the notched built-in display ran out of
             // menu bar room and macOS hid the leftmost items — a relaunched
-            // item with no saved position always lands leftmost. Pinning it to
-            // the right fixed it (MenuBarExtra's autosave name is Item-0):
-            //   defaults write com.geoff.live-recorder.app \
-            //     "NSStatusItem Preferred Position Item-0" -float 3000
+            // item with no saved position always lands leftmost. init() now
+            // seeds a right-hand position.
             Image(systemName: "waveform", variableValue: supervisor.isRecording ? supervisor.level : 1.0)
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(supervisor.isRecording ? Color.red : Color.primary)
