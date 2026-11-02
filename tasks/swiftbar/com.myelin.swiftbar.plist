@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent: start SwiftBar at login and start it again if it crashes.
+  Template, filled in and loaded by install.sh. Don't install by hand.
+
+  KeepAlive SuccessfulExit=false: launchd restarts SwiftBar when it dies from a
+  crash, but not when you quit it from its menu (exit 0). It comes back at the
+  next login. ThrottleInterval limits a crash loop to one launch per 30 s.
+
+  Logs: ~/Library/Logs/swiftbar.out  and  .err
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.myelin.swiftbar</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/SwiftBar.app/Contents/MacOS/SwiftBar</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/swiftbar.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/swiftbar.err</string>
+</dict>
+</plist>

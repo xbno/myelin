@@ -1,0 +1,17 @@
+[project]
+name = "google-tasks-mcp"
+version = "0.1.0"
+description = "MCP server for Google Tasks via an Apps Script bridge: lists, subtasks, due dates"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=2.2,<3",
+    "google-api-python-client>=2.100",
+    "google-auth>=2.20",
+    "google-auth-oauthlib>=1.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false

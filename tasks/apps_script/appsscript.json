@@ -1,0 +1,22 @@
+{
+  "timeZone": "America/New_York",
+  "runtimeVersion": "V8",
+  "exceptionLogging": "STACKDRIVER",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Tasks",
+        "serviceId": "tasks",
+        "version": "v1"
+      }
+    ]
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/userinfo.email"
+  ],
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+  }
+}

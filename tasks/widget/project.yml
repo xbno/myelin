@@ -1,0 +1,73 @@
+# Generate the Xcode project with:  brew install xcodegen && xcodegen
+name: GTasksWidget
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+    # Set to your team ID (Xcode > Settings > Accounts), or pick the team in
+    # Signing & Capabilities after generating. A free Personal Team works.
+    DEVELOPMENT_TEAM: ""
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  GTasks:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Shared
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: GTasks
+        LSApplicationCategoryType: public.app-category.productivity
+        AppGroupID: "$(TeamIdentifierPrefix)gtasks.widget"
+    entitlements:
+      path: App/GTasks.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.files.user-selected.read-only: true
+        com.apple.security.application-groups:
+          - "$(TeamIdentifierPrefix)gtasks.widget"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.gtasks
+    dependencies:
+      - target: GTasksWidgetExtension
+
+  GTasksWidgetExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Widget
+      - Shared
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Google Tasks
+        AppGroupID: "$(TeamIdentifierPrefix)gtasks.widget"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/GTasksWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups:
+          - "$(TeamIdentifierPrefix)gtasks.widget"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.gtasks.widget
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: AppIntents.framework
