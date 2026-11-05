@@ -9,7 +9,8 @@ import Foundation
 /// notification, but only when the input format actually changed — the same
 /// notification fires for output-only route changes.
 final class MicCapture {
-    private let engine = AVAudioEngine()
+    /// Replaced on every restart — see `restartEngine`.
+    private var engine = AVAudioEngine()
     private let channel: SpeechChannel
     private let aec: Bool
     private var configObserver: (any NSObjectProtocol)?
@@ -37,6 +38,15 @@ final class MicCapture {
             break
         }
         try startEngine()
+        observeConfigChanges()
+    }
+
+    /// Watch the CURRENT engine for route/format changes. The notification is
+    /// per engine object, so this re-runs whenever the engine is replaced.
+    private func observeConfigChanges() {
+        if let configObserver {
+            NotificationCenter.default.removeObserver(configObserver)
+        }
         configObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
         ) { [weak self] _ in
@@ -91,7 +101,7 @@ final class MicCapture {
                 + (aec ? ", AEC" : "") + ")")
     }
 
-    private func restartEngine() {
+    private func restartEngine(attempt: Int = 1) {
         guard !stopped else { return }
         // The notification also fires for OUTPUT route changes — headphones,
         // a monitor's speakers — which leave the microphone untouched. Tearing
@@ -107,11 +117,26 @@ final class MicCapture {
         }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+        // Build a NEW engine. Nov 5: restarting the old one after the mic moved
+        // (Mac mic → Bluetooth headset) failed with -10868 in
+        // InitializeActiveNodesInInputChain on all 10 tries, so the mic stayed
+        // dead for the rest of the call. A fresh engine on the Bluetooth mic
+        // starts fine (every recording started on Bluetooth that day did).
+        engine = AVAudioEngine()
+        observeConfigChanges()
         do {
             try startEngine()
-            Console.status("mic restarted after audio route change")
+            Console.status(
+                "mic restarted after audio route change" + (attempt > 1 ? " (try \(attempt))" : ""))
         } catch {
-            Console.error("mic restart failed after route change: \(error)")
+            guard attempt < 5 else {
+                Console.error("mic restart failed after \(attempt) tries — mic is off: \(error)")
+                return
+            }
+            Console.error("mic restart failed (try \(attempt)), retrying in 1 s: \(error)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                self?.restartEngine(attempt: attempt + 1)
+            }
         }
     }
 

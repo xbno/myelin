@@ -20,15 +20,28 @@ final class SystemAudioTap {
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
     private var procID: AudioDeviceIOProcID?
+    /// Runs the IOProc only.
     private let queue = DispatchQueue(label: "system-tap-io")
+    /// Runs every CoreAudio lifecycle call (create, start, stop, destroy), the
+    /// device listener and the health timer. It must NOT be `queue`: the HAL IO
+    /// thread holds an IO-context lock while it dispatch_syncs each callback
+    /// onto `queue`, and AudioDeviceStop waits for that same lock. Stopping
+    /// from `queue` deadlocks whenever a callback is in flight. Sep 21 hit it in
+    /// stop(); Nov 5 hit it in the rebuild — Bluetooth headphones connected
+    /// mid-call while the speakers kept the old tap's IO running, the rebuild
+    /// hung in AudioDeviceStop, and the system transcript stopped for the rest
+    /// of the call (the health timer was stuck behind it on the same queue).
+    private let control = DispatchQueue(label: "system-tap-control")
 
-    // Health state. Only touched on `queue` (IOProc, health timer and device
-    // listener all run there), so no locking is needed.
+    // IO health. Written by the IOProc; only touched on `queue`.
     private var lastIO = Date.distantPast  // last usable buffer from the IOProc
     private var wrapFailures = 0  // consecutive nil buffer wraps (stale format)
+
+    // Lifecycle state. Only touched on `control`.
     private var lastRebuild = Date.distantPast
     private var stopped = false
     private var healthTimer: DispatchSourceTimer?
+
     private var deviceListener: AudioObjectPropertyListenerBlock?
 
     private static var defaultOutputAddr = AudioObjectPropertyAddress(
@@ -42,30 +55,28 @@ final class SystemAudioTap {
     }
 
     func start() throws {
-        try queue.sync {
-            try startCore_onQueue()
-            lastIO = Date()
-        }
+        try control.sync { try startCore_onControl() }
+        resetHealth()
 
         // Rebuild proactively when the default output device changes — the
         // primary real-world trigger for a tap format change.
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            self?.rebuild_onQueue(reason: "default output device changed")
+            self?.rebuild_onControl(reason: "default output device changed")
         }
         AudioObjectAddPropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject), &Self.defaultOutputAddr, queue, listener)
+            AudioObjectID(kAudioObjectSystemObject), &Self.defaultOutputAddr, control, listener)
         deviceListener = listener
 
         // Fallback watchdog for anything the listener misses: failed wraps
         // (format changed under us) or the device going quiet entirely.
-        let timer = DispatchSource.makeTimerSource(queue: queue)
+        let timer = DispatchSource.makeTimerSource(queue: control)
         timer.schedule(deadline: .now() + 5, repeating: 5)
-        timer.setEventHandler { [weak self] in self?.healthCheck_onQueue() }
+        timer.setEventHandler { [weak self] in self?.healthCheck_onControl() }
         timer.resume()
         healthTimer = timer
     }
 
-    private func startCore_onQueue() throws {
+    private func startCore_onControl() throws {
         // 1. Global tap: capture every process's output, post-mix.
         let tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
         tapDesc.isPrivate = true
@@ -142,33 +153,47 @@ final class SystemAudioTap {
         Console.status("system-audio tap started (\(Int(format.sampleRate)) Hz, \(format.channelCount) ch)")
     }
 
-    private func healthCheck_onQueue() {
-        guard !stopped else { return }
-        if aggregateID == kAudioObjectUnknown {
-            rebuild_onQueue(reason: "previous rebuild failed")  // retry
-        } else if wrapFailures >= 3 {
-            rebuild_onQueue(reason: "buffer format changed (\(wrapFailures) failed wraps)")
-        } else if Date().timeIntervalSince(lastIO) > 60 {
-            rebuild_onQueue(reason: "no audio for 60s — device may have stopped")
+    /// Clear the IO health counters (on `queue`, which owns them). Safe from
+    /// `control`: the IOProc never waits on `control`.
+    private func resetHealth() {
+        queue.sync {
+            wrapFailures = 0
+            lastIO = Date()
         }
     }
 
-    private func rebuild_onQueue(reason: String) {
+    private func healthCheck_onControl() {
+        guard !stopped else { return }
+        let (failures, last) = queue.sync { (wrapFailures, lastIO) }
+        if aggregateID == kAudioObjectUnknown {
+            rebuild_onControl(reason: "previous rebuild failed")  // retry
+        } else if failures >= 3 {
+            rebuild_onControl(reason: "buffer format changed (\(failures) failed wraps)")
+        } else if Date().timeIntervalSince(last) > 10 {
+            // The IOProc fires through silence too (in 45 recordings this never
+            // fired on a quiet call), so 10 s with no buffers means the tap is
+            // stuck. Nov 5: a tap rebuilt mid Bluetooth switch never started its
+            // IO, and that stuck start also froze the mic inside AVAudioEngine;
+            // both came back the moment this rebuild destroyed it — at 60 s.
+            rebuild_onControl(reason: "no audio for 10s — tap stuck")
+        }
+    }
+
+    private func rebuild_onControl(reason: String) {
         guard !stopped, Date().timeIntervalSince(lastRebuild) > 3 else { return }
         lastRebuild = Date()
         Console.status("system tap rebuilding — \(reason)")
-        stopCore_onQueue()
+        stopCore_onControl()
         do {
-            try startCore_onQueue()
+            try startCore_onControl()
             Console.status("system tap rebuilt")
         } catch {
             Console.error("system tap rebuild failed (will retry): \(error)")
         }
-        wrapFailures = 0
-        lastIO = Date()  // grace period before the watchdog fires again
+        resetHealth()  // grace period before the watchdog fires again
     }
 
-    private func stopCore_onQueue() {
+    private func stopCore_onControl() {
         if let procID, aggregateID != kAudioObjectUnknown {
             AudioDeviceStop(aggregateID, procID)
             AudioDeviceDestroyIOProcID(aggregateID, procID)
@@ -187,38 +212,17 @@ final class SystemAudioTap {
     func stop() {
         if let deviceListener {
             AudioObjectRemovePropertyListenerBlock(
-                AudioObjectID(kAudioObjectSystemObject), &Self.defaultOutputAddr, queue,
+                AudioObjectID(kAudioObjectSystemObject), &Self.defaultOutputAddr, control,
                 deviceListener)
             self.deviceListener = nil
         }
-        // Take the CoreAudio handles off the queue, then tear them down from
-        // THIS thread. AudioDeviceStop blocks until the IOProc has drained, and
-        // the IOProc runs on `queue` — doing that inside queue.sync deadlocks:
-        // stop() waits to own the queue while CoreAudio waits for the queue to
-        // drain. Sep 21: the child hung in _dispatch_event_loop_wait_for_ownership,
-        // never exited on SIGTERM, and the menu bar stayed stuck "recording"
-        // with no way to start a new one.
-        var proc: AudioDeviceIOProcID?
-        var aggregate = AudioObjectID(kAudioObjectUnknown)
-        var tap = AudioObjectID(kAudioObjectUnknown)
-        queue.sync {
+        // Tearing down inside control.sync is safe: the IOProc runs on `queue`,
+        // so AudioDeviceStop can drain it (see `control`).
+        control.sync {
             stopped = true
             healthTimer?.cancel()
             healthTimer = nil
-            (proc, aggregate, tap) = (procID, aggregateID, tapID)
-            procID = nil
-            aggregateID = AudioObjectID(kAudioObjectUnknown)
-            tapID = AudioObjectID(kAudioObjectUnknown)
-        }
-        if let proc, aggregate != kAudioObjectUnknown {
-            AudioDeviceStop(aggregate, proc)
-            AudioDeviceDestroyIOProcID(aggregate, proc)
-        }
-        if aggregate != kAudioObjectUnknown {
-            AudioHardwareDestroyAggregateDevice(aggregate)
-        }
-        if tap != kAudioObjectUnknown {
-            AudioHardwareDestroyProcessTap(tap)
+            stopCore_onControl()
         }
     }
 }
