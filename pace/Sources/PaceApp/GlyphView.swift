@@ -84,6 +84,9 @@ struct GlyphView: View {
                         // Sized to the Clawd mark opposite it. In the 6 pt label slot the
                         // prompt inside it would be four pixels of mush; out here it reads.
                         CodexMark(color: ink, unit: 0.85)
+                            .opacity(dimmed.contains(column.id) ? 0.5 : 1)
+                    } else if settings.showMark, column.id == "gemini" {
+                        AntigravityMark()
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         ForEach(column.rows) { row in
@@ -98,8 +101,8 @@ struct GlyphView: View {
                             }
                         }
                     }
+                    .opacity(dimmed.contains(column.id) ? 0.5 : 1)
                 }
-                .opacity(dimmed.contains(column.id) ? 0.5 : 1)
             }
             if let hoursLeft {
                 Text(hoursLeft)

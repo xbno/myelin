@@ -204,10 +204,16 @@ final class UsageStore: ObservableObject {
 
     /// The trouble with one provider, or nil when its last fetch succeeded.
     func status(for feed: ProviderFeed) -> String? {
-        guard let error = feed.lastError else { return nil }
+        guard let error = feed.lastError else {
+            // Old numbers with no error to explain them must still say they are old; the
+            // header's "updated" time is the newest across providers and would hide this one.
+            guard let snapshot = feed.snapshot, isStale(feed) else { return nil }
+            return "last reading \(Fmt.clock(snapshot.fetchedAt, now: now, calendar: calendar))"
+                + " (\(Fmt.ago(now.timeIntervalSince(snapshot.fetchedAt))))"
+        }
         let next = feed.nextFetchAt.map { "next try \(Fmt.clock($0, now: now, calendar: calendar))" } ?? ""
         let age = feed.snapshot.map { "showing data from \(Fmt.clock($0.fetchedAt, now: now, calendar: calendar))" } ?? "no data yet"
-        let signIn = feed.id == "codex" ? "run codex to sign in" : "run claude auth login"
+        let signIn = feed.id == "codex" ? "run codex to sign in" : feed.id == "gemini" ? "run agy to sign in" : "run claude auth login"
         switch error {
         case .rateLimited: return "usage API rate limited · \(age) · \(next)"
         case .tokenExpired: return "token expired, refresh failed · \(age) · \(signIn)"

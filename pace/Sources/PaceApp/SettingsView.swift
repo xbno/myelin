@@ -75,6 +75,12 @@ struct SettingsView: View {
                     Text("Read by running the Codex CLI's app-server, so it uses the login you already have. Needs the `codex` command installed.")
                         .font(.caption).foregroundColor(.secondary)
                 }
+                Toggle("Gemini, via Antigravity CLI", isOn: $store.settings.geminiEnabled)
+                if store.settings.geminiEnabled {
+                    LabeledContent("Status", value: status("gemini"))
+                    Text("Read by running `agy -p /usage`, so it uses the login you already have. Needs the `agy` command installed.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
                 Picker("Poll every", selection: $store.settings.pollSeconds) {
                     Text("30 s").tag(30)
                     Text("60 s").tag(60)

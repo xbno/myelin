@@ -28,7 +28,7 @@ app: build Resources/AppIcon.icns
 	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp $(BUILD)/PaceApp $(APP)/Contents/MacOS/PaceApp
 	cp Resources/AppInfo.plist $(APP)/Contents/Info.plist
-	cp Resources/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns
+	cp Resources/AppIcon.icns Resources/antigravity-statusline.sh $(APP)/Contents/Resources/
 	codesign --force --deep --sign - $(APP) >/dev/null 2>&1 || true
 	@echo "built $(APP) — run it with:  open $(APP)"
 

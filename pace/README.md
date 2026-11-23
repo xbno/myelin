@@ -135,3 +135,23 @@ The Command Line Tools ship Swift Testing outside the default search path;
 
 Layout: `Sources/PaceCore` is the tested library (model, schedule, fill,
 formatting, providers), `Sources/PaceApp` is the AppKit + SwiftUI app.
+
+### Antigravity CLI
+
+Enable **Gemini, via Antigravity CLI** in Pace Settings. Pace runs
+`agy -p /usage --output-format json` on each poll. The CLI answers `/usage`
+locally with no model turn, using the login agy already has. Set `$AGY_BIN` if
+agy is not in `~/.local/bin`, Homebrew, `/usr/local/bin` or Gemini.app.
+
+The optional status-line hook only supplies the plan name shown above the
+rows. To add it, put this in `~/.gemini/antigravity-cli/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "/Applications/Pace.app/Contents/Resources/antigravity-statusline.sh",
+    "stack_with_default": true
+  }
+}
+```

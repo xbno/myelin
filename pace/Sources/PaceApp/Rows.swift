@@ -72,11 +72,13 @@ enum RowBuilder {
     /// Labels stay fixed per provider rather than shifting when the other one is toggled,
     /// so a glance at the same row always means the same thing.
     static func sessionLabel(_ providerID: String) -> (String, String) {
-        providerID == "codex" ? ("Cdx5h", "x") : ("Sess", "S")
+        if providerID == "gemini" { return ("Sess", "g") }
+        return providerID == "codex" ? ("Cdx5h", "x") : ("Sess", "S")
     }
 
     static func weekLabel(_ providerID: String) -> (String, String) {
-        providerID == "codex" ? ("Codex", "X") : ("Week", "W")
+        if providerID == "gemini" { return ("Week", "G") }
+        return providerID == "codex" ? ("Codex", "X") : ("Week", "W")
     }
 
     @MainActor static func rows(store: UsageStore) -> [RowModel] {
@@ -114,7 +116,7 @@ enum RowBuilder {
                 elapsed: sessionMeter.windowStart.map { now.timeIntervalSince($0) },
                 remaining: sessionMeter.resetsAt.map { $0.timeIntervalSince(now) },
                 resetsAt: sessionMeter.resetsAt, active: active, locked: sessionMeter.locked))
-        } else if feed.id != "codex" {
+        } else if feed.id == "anthropic" {
             // Claude always shows the row, empty, because a session starts the moment you use it.
             let (label, short) = sessionLabel(feed.id)
             out.append(RowModel(
@@ -138,6 +140,7 @@ enum RowBuilder {
                                    now: now, band: band)
         }
         let weekMeter = snapshot?.weekly
+        if feed.id == "gemini", weekMeter == nil { return out }
         let weekPercent = weekMeter?.percent ?? 0
         let weekActive = weekMeter != nil && layout != nil
         let (weekText, weekShort) = weekLabel(feed.id)
@@ -179,16 +182,22 @@ enum RowBuilder {
         }
         out += models.map { meter -> RowModel in
             let name = meter.modelName ?? "Model"
+            // Most model limits reset with the week. One that keeps its own window (Antigravity's
+            // Claude/GPT pool) shows its own reset, and the week's pace tick says nothing about it.
+            let ownReset = meter.resetsAt.flatMap { reset in
+                layout.map { abs(reset.timeIntervalSince($0.windowEnd)) > 3600 } ?? true ? reset : nil
+            }
+            let resetsAt = ownReset ?? layout?.windowEnd
             return RowModel(
                 id: "\(feed.id)-model-\(name)", providerID: feed.id, providerName: feed.displayName,
                 label: name, shortLabel: String(name.prefix(1)), style: .model,
                 blocks: weekBlocks, fills: Fill.solid(used: meter.percent, exhausted: meter.locked),
                 tick: nil, unit: nil,
                 percent: meter.percent,
-                state: weekTick.map { Verdict.state(used: meter.percent, tick: $0, band: band) },
+                state: ownReset == nil ? weekTick.map { Verdict.state(used: meter.percent, tick: $0, band: band) } : nil,
                 solidColorHex: settings.modelColor(name),
-                elapsed: nil, remaining: layout.map { $0.windowEnd.timeIntervalSince(now) },
-                resetsAt: layout?.windowEnd, active: true, locked: meter.locked)
+                elapsed: nil, remaining: resetsAt.map { $0.timeIntervalSince(now) },
+                resetsAt: resetsAt, active: true, locked: meter.locked)
         }
         return out
     }

@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The debug provider stands in for the whole set when it is switched on.
         let providers: [UsageProvider] = DebugProvider.fromEnvironment().map { [$0] }
-            ?? [AnthropicProvider(), CodexProvider()]
+            ?? [AnthropicProvider(), CodexProvider(), AntigravityProvider()]
         store = UsageStore(providers: providers)
         settingsWindow = SettingsWindowController(store: store)
         statusItem = StatusItemController(store: store)

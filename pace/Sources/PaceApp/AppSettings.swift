@@ -37,6 +37,7 @@ struct AppSettings: Codable, Equatable {
     var pollSeconds = 180
     var providerEnabled = true          // Anthropic, via the Claude Code login
     var codexEnabled = false            // Codex, via the Codex CLI
+    var geminiEnabled = false
     var launchAtLogin = false
 
     static let claudeOrange = "#D97757"
@@ -60,6 +61,7 @@ struct AppSettings: Codable, Equatable {
     /// Whether a provider contributes rows. Keyed by `UsageProvider.id`.
     func isEnabled(_ providerID: String) -> Bool {
         switch providerID {
+        case "gemini": return geminiEnabled
         case "codex": return codexEnabled
         default: return providerEnabled
         }
@@ -88,6 +90,7 @@ extension AppSettings {
         pollSeconds = try c.decodeIfPresent(Int.self, forKey: .pollSeconds) ?? d.pollSeconds
         providerEnabled = try c.decodeIfPresent(Bool.self, forKey: .providerEnabled) ?? d.providerEnabled
         codexEnabled = try c.decodeIfPresent(Bool.self, forKey: .codexEnabled) ?? d.codexEnabled
+        geminiEnabled = try c.decodeIfPresent(Bool.self, forKey: .geminiEnabled) ?? d.geminiEnabled
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? d.launchAtLogin
     }
 }

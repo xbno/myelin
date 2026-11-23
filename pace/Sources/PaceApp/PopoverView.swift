@@ -66,7 +66,8 @@ struct PopoverView: View {
                 GutterGroup("models") {
                     HStack(spacing: 6) {
                         Text("WEEKLY").font(.system(size: 10, weight: .bold)).kerning(0.6).foregroundColor(.secondary)
-                        Text("resets with Week").font(.system(size: 11)).foregroundColor(.secondary)
+                        Text(modelResetNote(models, week: rows.first { $0.style == .week }))
+                            .font(.system(size: 11)).foregroundColor(.secondary)
                     }
                     if models.isEmpty {
                         Text("no per-model limits on this plan").font(.system(size: 11)).foregroundColor(.secondary).padding(.top, 2)
@@ -212,6 +213,16 @@ struct PopoverView: View {
         .padding(.vertical, 3)
     }
 
+    /// "resets with Week" unless a model pool keeps its own window, as Antigravity's
+    /// Claude/GPT pool does; then that reset is named.
+    private func modelResetNote(_ models: [RowModel], week: RowModel?) -> String {
+        let own = models.compactMap(\.resetsAt).filter { reset in
+            week?.resetsAt.map { abs(reset.timeIntervalSince($0)) > 3600 } ?? true
+        }
+        guard let first = own.min() else { return "resets with Week" }
+        return "resets \(Fmt.clock(first, now: store.now, calendar: store.calendar))"
+    }
+
     @ViewBuilder
     private func verdict(_ r: RowModel, palette: Palette) -> some View {
         if r.locked {
@@ -224,7 +235,7 @@ struct PopoverView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(palette.verdictColor(s, onLightSurface: true))
             }
-        } else if r.style == .session {
+        } else if r.style == .session || r.style == .model {
             Text("\(100 - Int(r.percent.rounded())) left").font(.system(size: 11)).foregroundColor(.secondary)
         }
     }
